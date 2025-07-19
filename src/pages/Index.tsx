@@ -6,12 +6,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Shield, AlertTriangle, CheckCircle, Info, Eye, Code, FileText, Terminal, Zap } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, Info, Eye, Code, FileText, Terminal, Zap, Download } from "lucide-react";
 import { SanitizationEngine } from "@/lib/sanitization-engine";
 import { SeverityLevel, SanitizationResult } from "@/types/sanitization";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { IssuesList } from "@/components/IssuesList";
 import { OutputDisplay } from "@/components/OutputDisplay";
+import jsPDF from 'jspdf';
 
 const Index = () => {
   const [input, setInput] = useState("");
@@ -36,6 +37,87 @@ const Index = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleExportPDF = () => {
+    if (!result) return;
+
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    let yPosition = 20;
+
+    // Set font
+    pdf.setFont('courier');
+
+    // Title
+    pdf.setFontSize(16);
+    pdf.text('LLM SANITIZATION REPORT', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 20;
+
+    // Timestamp
+    pdf.setFontSize(10);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, 20, yPosition);
+    yPosition += 15;
+
+    // Severity
+    pdf.setFontSize(12);
+    pdf.text(`SEVERITY: ${result.severity.toUpperCase()}`, 20, yPosition);
+    yPosition += 10;
+
+    // Issues count
+    pdf.text(`ISSUES FOUND: ${result.issues.length}`, 20, yPosition);
+    yPosition += 15;
+
+    // Issues details
+    if (result.issues.length > 0) {
+      pdf.setFontSize(14);
+      pdf.text('THREAT ANALYSIS:', 20, yPosition);
+      yPosition += 10;
+
+      result.issues.forEach((issue, index) => {
+        if (yPosition > pageHeight - 40) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        pdf.setFontSize(10);
+        pdf.text(`${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type.toUpperCase()}`, 20, yPosition);
+        yPosition += 7;
+        
+        const descLines = pdf.splitTextToSize(issue.description, pageWidth - 40);
+        pdf.text(descLines, 25, yPosition);
+        yPosition += descLines.length * 5 + 5;
+
+        if (issue.recommendation) {
+          const recLines = pdf.splitTextToSize(`Recommendation: ${issue.recommendation}`, pageWidth - 40);
+          pdf.text(recLines, 25, yPosition);
+          yPosition += recLines.length * 5 + 10;
+        }
+      });
+    }
+
+    // Add new page for output comparison
+    pdf.addPage();
+    yPosition = 20;
+
+    pdf.setFontSize(14);
+    pdf.text('SANITIZED OUTPUT:', 20, yPosition);
+    yPosition += 15;
+
+    pdf.setFontSize(8);
+    const outputLines = pdf.splitTextToSize(result.sanitizedOutput || 'No output generated', pageWidth - 40);
+    outputLines.forEach((line: string) => {
+      if (yPosition > pageHeight - 20) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+      pdf.text(line, 20, yPosition);
+      yPosition += 5;
+    });
+
+    // Save the PDF
+    pdf.save(`llm-sanitization-report-${Date.now()}.pdf`);
   };
 
   const getSeverityIcon = (severity: SeverityLevel) => {
@@ -97,7 +179,7 @@ const Index = () => {
           </p>
         </div>
 
-        {/* Mode Toggle */}
+        {/* Mode Toggle and Export */}
         <div className="flex items-center justify-center gap-4 mb-6 font-mono">
           <Label htmlFor="expert-mode" className="text-terminal-green">[NOVICE_MODE]</Label>
           <Switch
@@ -107,6 +189,18 @@ const Index = () => {
             className="data-[state=checked]:bg-terminal-green"
           />
           <Label htmlFor="expert-mode" className="text-terminal-green">[EXPERT_MODE]</Label>
+          
+          {result && (
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              className="ml-8 border-terminal-green/50 text-terminal-green hover:bg-terminal-green/20 font-mono"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              EXPORT_PDF
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

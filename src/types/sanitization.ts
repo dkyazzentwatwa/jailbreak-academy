@@ -12,6 +12,9 @@ export interface SecurityIssue {
   pattern?: string;
 }
 
+// Legacy alias for backward compatibility
+export type SanitizationIssue = SecurityIssue;
+
 export interface SanitizationResult {
   originalInput: string;
   sanitizedOutput: string;

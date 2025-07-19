@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Info, CheckCircle, Bug } from "lucide-react";
+import { AlertTriangle, Info, CheckCircle, Bug, Shield, ExternalLink } from "lucide-react";
 import { SanitizationIssue } from "@/types/sanitization";
 
 interface IssuesListProps {
@@ -37,6 +37,66 @@ export const IssuesList = ({ issues, expertMode }: IssuesListProps) => {
     );
   };
 
+  const getDetailedExplanation = (issue: SanitizationIssue) => {
+    const explanations = {
+      'xss': {
+        title: 'Cross-Site Scripting (XSS) Attack Vector',
+        description: 'Malicious scripts that could execute in browsers and steal data, hijack sessions, or perform unauthorized actions.',
+        impact: 'HIGH - Could compromise user accounts, steal sensitive information, or spread malware.',
+        prevention: 'All script tags, event handlers, and JavaScript URLs have been neutralized.'
+      },
+      'script_injection': {
+        title: 'Script Injection Attempt',
+        description: 'Code designed to execute commands or scripts in the target environment.',
+        impact: 'HIGH - Could execute arbitrary code, access system resources, or compromise security.',
+        prevention: 'Dangerous script elements have been removed or commented out.'
+      },
+      'sql_injection': {
+        title: 'SQL Injection Pattern',
+        description: 'Database commands that could manipulate, delete, or expose database contents.',
+        impact: 'CRITICAL - Could lead to data breaches, database corruption, or unauthorized access.',
+        prevention: 'SQL commands have been neutralized and marked as safe comments.'
+      },
+      'command_injection': {
+        title: 'System Command Injection',
+        description: 'Operating system commands that could access files, networks, or system resources.',
+        impact: 'CRITICAL - Could compromise entire systems, delete files, or establish backdoors.',
+        prevention: 'System commands have been disabled and marked for manual review.'
+      },
+      'prompt_injection': {
+        title: 'AI Prompt Manipulation',
+        description: 'Instructions designed to override AI system prompts or extract sensitive information.',
+        impact: 'MEDIUM - Could manipulate AI behavior or extract training data.',
+        prevention: 'Prompt override attempts have been neutralized and system tags removed.'
+      },
+      'data_exposure': {
+        title: 'Sensitive Data Exposure',
+        description: 'Personal information, API keys, or credentials that should not be publicly visible.',
+        impact: 'MEDIUM - Could lead to privacy violations or unauthorized system access.',
+        prevention: 'Sensitive data has been redacted and replaced with safe placeholders.'
+      },
+      'content_policy': {
+        title: 'Content Policy Violation',
+        description: 'Content that violates acceptable use policies or community guidelines.',
+        impact: 'LOW-MEDIUM - Could cause reputational damage or violate platform terms.',
+        prevention: 'Problematic content has been filtered or replaced with appropriate alternatives.'
+      },
+      'html_injection': {
+        title: 'HTML Injection Vector',
+        description: 'Malicious HTML tags or attributes that could alter page structure or appearance.',
+        impact: 'MEDIUM - Could deface websites or create phishing opportunities.',
+        prevention: 'Dangerous HTML elements have been sanitized while preserving safe formatting.'
+      }
+    };
+
+    return explanations[issue.type] || {
+      title: 'Security Issue Detected',
+      description: 'Potentially harmful content identified during analysis.',
+      impact: 'UNKNOWN - Manual review recommended.',
+      prevention: 'Content has been flagged for review.'
+    };
+  };
+
   if (!expertMode && issues.length === 0) {
     return null;
   }
@@ -61,33 +121,103 @@ export const IssuesList = ({ issues, expertMode }: IssuesListProps) => {
             // All security protocols passed
           </div>
         ) : (
-          <div className="space-y-3">
-            {issues.map((issue, index) => (
-              <div 
-                key={index} 
-                className="flex items-start gap-3 p-3 rounded bg-terminal-bg border border-terminal-green/20"
-              >
-                {getSeverityIcon(issue.severity)}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {getSeverityBadge(issue.severity)}
-                    <span className="font-mono text-xs text-terminal-green font-bold">
-                      {issue.type.replace(/_/g, '_').toUpperCase()}
-                    </span>
+          <div className="space-y-4">
+            {issues.map((issue, index) => {
+              const explanation = getDetailedExplanation(issue);
+              return (
+                <div 
+                  key={index} 
+                  className="p-4 rounded border border-terminal-green/20 bg-terminal-bg space-y-3"
+                >
+                  <div className="flex items-start gap-3">
+                    {getSeverityIcon(issue.severity)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        {getSeverityBadge(issue.severity)}
+                        <span className="font-mono text-xs text-terminal-green font-bold">
+                          {issue.type.replace(/_/g, '_').toUpperCase()}
+                        </span>
+                      </div>
+                      <h4 className="font-mono text-sm text-terminal-green font-bold mb-1">
+                        {explanation.title}
+                      </h4>
+                      <p className="text-xs font-mono text-muted-foreground leading-relaxed mb-2">
+                        // {issue.description}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs font-mono text-muted-foreground leading-relaxed">
-                    // {issue.message}
-                  </p>
-                  {issue.details && expertMode && (
-                    <div className="mt-2 p-2 bg-terminal-bg/50 rounded border border-terminal-green/10">
-                      <pre className="text-xs font-mono text-terminal-green/80 whitespace-pre-wrap">
-                        {issue.details}
-                      </pre>
+
+                  {expertMode && (
+                    <div className="space-y-3 pl-7">
+                      {/* Detailed Technical Analysis */}
+                      <div className="bg-terminal-bg/50 rounded border border-terminal-green/10 p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Shield className="h-3 w-3 text-terminal-green" />
+                          <span className="font-mono text-xs text-terminal-green font-bold">TECHNICAL_ANALYSIS</span>
+                        </div>
+                        <p className="text-xs font-mono text-muted-foreground leading-relaxed mb-2">
+                          {explanation.description}
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+                          <div>
+                            <span className="text-red-400 font-bold">IMPACT_LEVEL:</span>
+                            <br />
+                            <span className="text-muted-foreground">{explanation.impact}</span>
+                          </div>
+                          <div>
+                            <span className="text-terminal-green font-bold">MITIGATION:</span>
+                            <br />
+                            <span className="text-muted-foreground">{explanation.prevention}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pattern Details */}
+                      {issue.pattern && (
+                        <div className="bg-red-950/20 rounded border border-red-500/20 p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <ExternalLink className="h-3 w-3 text-red-400" />
+                            <span className="font-mono text-xs text-red-400 font-bold">DETECTED_PATTERN</span>
+                          </div>
+                          <pre className="text-xs font-mono text-red-200 whitespace-pre-wrap break-all">
+                            {issue.pattern.length > 100 ? 
+                              `${issue.pattern.substring(0, 100)}...` : 
+                              issue.pattern
+                            }
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* Location Info */}
+                      {issue.location && (
+                        <div className="bg-blue-950/20 rounded border border-blue-500/20 p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Info className="h-3 w-3 text-blue-400" />
+                            <span className="font-mono text-xs text-blue-400 font-bold">LOCATION_INFO</span>
+                          </div>
+                          <p className="text-xs font-mono text-blue-200">
+                            {issue.location}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Recommendation */}
+                      {issue.recommendation && (
+                        <div className="bg-terminal-green/10 rounded border border-terminal-green/20 p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle className="h-3 w-3 text-terminal-green" />
+                            <span className="font-mono text-xs text-terminal-green font-bold">RECOMMENDATION</span>
+                          </div>
+                          <p className="text-xs font-mono text-terminal-green/80">
+                            {issue.recommendation}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
