@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -18,6 +19,9 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				mono: ['Roboto Mono', 'monospace'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -52,15 +56,13 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
+				// Terminal-specific colors
+				terminal: {
+					bg: 'hsl(var(--terminal-bg))',
+					'bg-light': 'hsl(var(--terminal-bg-light))',
+					green: 'hsl(var(--terminal-green))',
+					'green-dark': 'hsl(var(--terminal-green-dark))',
+					'green-light': 'hsl(var(--terminal-green-light))',
 				}
 			},
 			borderRadius: {
@@ -84,11 +86,16 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'terminal-flicker': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.8' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'terminal-flicker': 'terminal-flicker 0.1s ease-in-out infinite alternate'
 			}
 		}
 	},

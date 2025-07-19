@@ -1,14 +1,12 @@
-
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Shield, AlertTriangle, CheckCircle, Info, Eye, Code, FileText } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, Info, Eye, Code, FileText, Terminal, Zap } from "lucide-react";
 import { SanitizationEngine } from "@/lib/sanitization-engine";
 import { SeverityLevel, SanitizationResult } from "@/types/sanitization";
 import { SeverityBadge } from "@/components/SeverityBadge";
@@ -28,7 +26,7 @@ const Index = () => {
     
     try {
       // Simulate processing time for UX
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       const sanitizer = new SanitizationEngine();
       const sanitizationResult = sanitizer.sanitize(input);
@@ -43,94 +41,113 @@ const Index = () => {
   const getSeverityIcon = (severity: SeverityLevel) => {
     switch (severity) {
       case 'high':
-        return <AlertTriangle className="h-5 w-5 text-red-500" />;
+        return <AlertTriangle className="h-5 w-5 text-red-400" />;
       case 'moderate':
-        return <Info className="h-5 w-5 text-yellow-500" />;
+        return <Info className="h-5 w-5 text-yellow-400" />;
       case 'low':
-        return <AlertTriangle className="h-5 w-5 text-blue-500" />;
+        return <AlertTriangle className="h-5 w-5 text-blue-400" />;
       default:
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-terminal-green" />;
     }
   };
 
   const getSeverityMessage = (severity: SeverityLevel, issueCount: number) => {
     switch (severity) {
       case 'high':
-        return `Dangerous content detected and removed (${issueCount} critical ${issueCount === 1 ? 'issue' : 'issues'})`;
+        return `CRITICAL: Malicious payload detected and neutralized (${issueCount} threat${issueCount === 1 ? '' : 's'})`;
       case 'moderate':
-        return `Potentially harmful content found and sanitized (${issueCount} ${issueCount === 1 ? 'issue' : 'issues'})`;
+        return `WARNING: Suspicious content found and sanitized (${issueCount} issue${issueCount === 1 ? '' : 's'})`;
       case 'low':
-        return `Minor issues cleaned up (${issueCount} ${issueCount === 1 ? 'issue' : 'issues'})`;
+        return `INFO: Minor anomalies cleaned (${issueCount} issue${issueCount === 1 ? '' : 's'})`;
       default:
-        return "No security issues detected - output is safe to use";
+        return "STATUS: All systems green - output verified secure";
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="container mx-auto py-8 px-4 max-w-6xl">
-        {/* Header */}
+    <div className="min-h-screen bg-terminal-bg relative overflow-x-hidden">
+      {/* Animated scan line */}
+      <div className="scan-line" />
+      
+      {/* Matrix-style background pattern */}
+      <div className="fixed inset-0 opacity-5 pointer-events-none">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--terminal-green)) 1px, transparent 0)`,
+          backgroundSize: '20px 20px'
+        }} />
+      </div>
+
+      <div className="container mx-auto py-8 px-4 max-w-6xl relative z-10">
+        {/* Terminal Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              LLM Output Sanitizer
+            <Terminal className="h-8 w-8 text-terminal-green terminal-green-glow" />
+            <h1 className="text-4xl font-bold terminal-green-glow font-mono tracking-wider">
+              LLM_SANITIZER_v2.1
             </h1>
+            <Zap className="h-6 w-6 text-terminal-green animate-pulse" />
           </div>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Professional-grade security analysis for AI-generated content. 
-            Remove malicious code, prevent XSS attacks, and ensure safe AI outputs.
+          <div className="font-mono text-terminal-green text-sm mb-2">
+            <span className="terminal-cursor">NEURAL_DEFENSE_PROTOCOL_ACTIVE</span>
+          </div>
+          <p className="text-muted-foreground max-w-2xl mx-auto font-mono text-sm leading-relaxed">
+            [CLASSIFIED] Military-grade AI output sanitization system.
+            <br />
+            Neutralizes malicious code, prevents XSS attacks, eliminates injection vectors.
           </p>
         </div>
 
-        {/* Expert Mode Toggle */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <Label htmlFor="expert-mode">Simple Mode</Label>
+        {/* Mode Toggle */}
+        <div className="flex items-center justify-center gap-4 mb-6 font-mono">
+          <Label htmlFor="expert-mode" className="text-terminal-green">[NOVICE_MODE]</Label>
           <Switch
             id="expert-mode"
             checked={expertMode}
             onCheckedChange={setExpertMode}
+            className="data-[state=checked]:bg-terminal-green"
           />
-          <Label htmlFor="expert-mode">Expert Mode</Label>
+          <Label htmlFor="expert-mode" className="text-terminal-green">[EXPERT_MODE]</Label>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Input Section */}
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="h-fit bg-card border-terminal-green/30 terminal-glow">
+            <CardHeader className="border-b border-terminal-green/20">
+              <CardTitle className="flex items-center gap-2 font-mono text-terminal-green">
                 <FileText className="h-5 w-5" />
-                AI Output Input
+                INPUT_BUFFER
               </CardTitle>
-              <CardDescription>
-                Paste any AI-generated content here for security analysis
+              <CardDescription className="font-mono text-xs text-muted-foreground">
+                // Paste potentially hostile AI output for analysis
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-6">
               <Textarea
-                placeholder="Paste your AI output here (HTML, code, text, etc.)..."
+                placeholder=">>> PASTE_AI_OUTPUT_HERE
+// WARNING: Treat all input as potentially malicious
+// System will analyze for XSS, injections, exploits..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="min-h-[300px] font-mono text-sm resize-none"
+                className="min-h-[300px] font-mono text-sm resize-none bg-input border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground focus:border-terminal-green focus:ring-terminal-green/50"
               />
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {input.length} characters
+              <div className="flex items-center justify-between font-mono text-xs">
+                <span className="text-muted-foreground">
+                  BUFFER_SIZE: {input.length} bytes
                 </span>
                 <Button 
                   onClick={handleSanitize}
                   disabled={!input.trim() || isProcessing}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-terminal-green hover:bg-terminal-green/80 text-black font-mono font-bold tracking-wide transition-all duration-200 hover:shadow-lg hover:shadow-terminal-green/25"
                 >
                   {isProcessing ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Analyzing...
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2" />
+                      ANALYZING...
                     </>
                   ) : (
                     <>
                       <Shield className="h-4 w-4 mr-2" />
-                      Sanitize Output
+                      EXECUTE_SCAN
                     </>
                   )}
                 </Button>
@@ -139,52 +156,55 @@ const Index = () => {
           </Card>
 
           {/* Results Section */}
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="h-fit bg-card border-terminal-green/30 terminal-glow">
+            <CardHeader className="border-b border-terminal-green/20">
+              <CardTitle className="flex items-center gap-2 font-mono text-terminal-green">
                 <Eye className="h-5 w-5" />
-                Security Analysis Results
+                ANALYSIS_OUTPUT
               </CardTitle>
-              <CardDescription>
-                Sanitized output and security findings
+              <CardDescription className="font-mono text-xs text-muted-foreground">
+                // Security analysis results and sanitized payload
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               {!result ? (
-                <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-muted rounded-lg">
-                  <Shield className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Enter AI output above and click "Sanitize Output" to begin analysis</p>
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-terminal-green/20 rounded-lg bg-terminal-bg">
+                  <Terminal className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="font-mono text-sm">AWAITING_INPUT...</p>
+                  <p className="font-mono text-xs mt-1 opacity-60">
+                    // Initialize scan protocol to begin threat analysis
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {/* Severity Summary */}
-                  <Alert className={`${
-                    result.severity === 'high' ? 'border-red-200 bg-red-50' :
-                    result.severity === 'moderate' ? 'border-yellow-200 bg-yellow-50' :
-                    result.severity === 'low' ? 'border-blue-200 bg-blue-50' :
-                    'border-green-200 bg-green-50'
+                  <Alert className={`border font-mono ${
+                    result.severity === 'high' ? 'border-red-500/50 bg-red-950/20' :
+                    result.severity === 'moderate' ? 'border-yellow-500/50 bg-yellow-950/20' :
+                    result.severity === 'low' ? 'border-blue-500/50 bg-blue-950/20' :
+                    'border-terminal-green/50 bg-terminal-green/5'
                   }`}>
                     <div className="flex items-center gap-2">
                       {getSeverityIcon(result.severity)}
-                      <AlertTitle className="text-sm font-medium">
+                      <AlertTitle className="text-sm font-mono font-bold">
                         <SeverityBadge severity={result.severity} />
                       </AlertTitle>
                     </div>
-                    <AlertDescription className="mt-2">
+                    <AlertDescription className="mt-2 font-mono text-xs">
                       {getSeverityMessage(result.severity, result.issues.length)}
                     </AlertDescription>
                   </Alert>
 
-                  {/* Issues List - Show based on mode */}
+                  {/* Issues List */}
                   {(expertMode || result.issues.length > 0) && (
                     <IssuesList issues={result.issues} expertMode={expertMode} />
                   )}
 
                   {/* Output Display */}
                   <Tabs defaultValue="sanitized" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="sanitized">Sanitized Output</TabsTrigger>
-                      <TabsTrigger value="comparison">Before/After</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-2 bg-secondary border border-terminal-green/20 font-mono">
+                      <TabsTrigger value="sanitized" className="data-[state=active]:bg-terminal-green data-[state=active]:text-black font-mono">CLEAN_OUTPUT</TabsTrigger>
+                      <TabsTrigger value="comparison" className="data-[state=active]:bg-terminal-green data-[state=active]:text-black font-mono">DIFF_VIEW</TabsTrigger>
                     </TabsList>
                     <TabsContent value="sanitized">
                       <OutputDisplay 
@@ -195,14 +215,14 @@ const Index = () => {
                     <TabsContent value="comparison">
                       <div className="space-y-4">
                         <div>
-                          <h4 className="font-medium text-sm mb-2 text-red-600">Original (Potentially Unsafe)</h4>
+                          <h4 className="font-mono text-sm mb-2 text-red-400 font-bold">[ORIGINAL_HOSTILE]</h4>
                           <OutputDisplay 
                             content={result.originalInput} 
                             type="original"
                           />
                         </div>
                         <div>
-                          <h4 className="font-medium text-sm mb-2 text-green-600">Sanitized (Safe)</h4>
+                          <h4 className="font-mono text-sm mb-2 text-terminal-green font-bold">[SANITIZED_SAFE]</h4>
                           <OutputDisplay 
                             content={result.sanitizedOutput} 
                             type="sanitized"
@@ -214,10 +234,10 @@ const Index = () => {
 
                   {/* Guidance */}
                   {result.guidance && (
-                    <Alert>
-                      <Info className="h-4 w-4" />
-                      <AlertTitle>Recommendation</AlertTitle>
-                      <AlertDescription>{result.guidance}</AlertDescription>
+                    <Alert className="border-terminal-green/30 bg-terminal-green/5">
+                      <Info className="h-4 w-4 text-terminal-green" />
+                      <AlertTitle className="font-mono text-terminal-green">SYSTEM_RECOMMENDATION</AlertTitle>
+                      <AlertDescription className="font-mono text-xs text-muted-foreground">{result.guidance}</AlertDescription>
                     </Alert>
                   )}
                 </div>
@@ -226,18 +246,22 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Educational Footer */}
+        {/* Terminal Footer */}
         <div className="mt-12 text-center">
-          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <Card className="bg-card border-terminal-green/30 terminal-glow">
             <CardContent className="pt-6">
               <div className="flex items-center justify-center gap-2 mb-3">
-                <Shield className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-900">Why Sanitize AI Outputs?</h3>
+                <Shield className="h-5 w-5 text-terminal-green" />
+                <h3 className="font-mono font-bold text-terminal-green">THREAT_INTELLIGENCE_BRIEFING</h3>
               </div>
-              <p className="text-sm text-blue-800 max-w-4xl mx-auto">
-                AI models can sometimes generate malicious content that looks harmless but contains hidden security threats. 
-                This tool helps identify and neutralize XSS attacks, code injections, and other security vulnerabilities 
-                in AI-generated text, keeping your applications and users safe.
+              <p className="font-mono text-xs text-muted-foreground max-w-4xl mx-auto leading-relaxed">
+                // AI models can generate malicious payloads disguised as benign content
+                <br />
+                // This system implements military-grade sanitization protocols
+                <br />
+                // Neutralizes XSS, injections, prompt hijacking, and zero-day exploits
+                <br />
+                // [CLASSIFIED] Keeping the digital battlefield secure, one output at a time
               </p>
             </CardContent>
           </Card>

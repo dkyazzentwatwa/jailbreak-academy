@@ -7,49 +7,36 @@ interface SeverityBadgeProps {
 }
 
 export const SeverityBadge = ({ severity }: SeverityBadgeProps) => {
-  const getBadgeVariant = (severity: SeverityLevel) => {
-    switch (severity) {
-      case 'high':
-        return 'destructive';
-      case 'moderate':
-        return 'secondary';
-      case 'low':
-        return 'outline';
-      default:
-        return 'default';
-    }
-  };
-
   const getBadgeColor = (severity: SeverityLevel) => {
     switch (severity) {
       case 'high':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-red-900/80 text-red-200 border-red-500/50 font-mono tracking-wider';
       case 'moderate':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-yellow-900/80 text-yellow-200 border-yellow-500/50 font-mono tracking-wider';
       case 'low':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-blue-900/80 text-blue-200 border-blue-500/50 font-mono tracking-wider';
       default:
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-terminal-green/20 text-terminal-green border-terminal-green/50 font-mono tracking-wider';
     }
   };
 
   const getSeverityText = (severity: SeverityLevel) => {
     switch (severity) {
       case 'high':
-        return 'High Risk';
+        return '[CRITICAL]';
       case 'moderate':
-        return 'Moderate Risk';
+        return '[WARNING]';
       case 'low':
-        return 'Low Risk';
+        return '[INFO]';
       default:
-        return 'Safe';
+        return '[SECURE]';
     }
   };
 
   return (
     <Badge 
-      variant={getBadgeVariant(severity)}
-      className={getBadgeColor(severity)}
+      variant="outline"
+      className={`${getBadgeColor(severity)} text-xs font-bold`}
     >
       {getSeverityText(severity)}
     </Badge>

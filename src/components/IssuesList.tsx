@@ -1,142 +1,95 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, AlertTriangle, Info, Shield, Database, Terminal, Brain, Eye, Code } from "lucide-react";
-import { SecurityIssue } from "@/types/sanitization";
-import { useState } from "react";
+import { AlertTriangle, Info, CheckCircle, Bug } from "lucide-react";
+import { SanitizationIssue } from "@/types/sanitization";
 
 interface IssuesListProps {
-  issues: SecurityIssue[];
+  issues: SanitizationIssue[];
   expertMode: boolean;
 }
 
 export const IssuesList = ({ issues, expertMode }: IssuesListProps) => {
-  const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
-
-  const toggleIssue = (issueId: string) => {
-    const newExpanded = new Set(expandedIssues);
-    if (newExpanded.has(issueId)) {
-      newExpanded.delete(issueId);
-    } else {
-      newExpanded.add(issueId);
-    }
-    setExpandedIssues(newExpanded);
-  };
-
-  const getIssueIcon = (type: SecurityIssue['type']) => {
-    switch (type) {
-      case 'xss':
-      case 'script_injection':
-      case 'html_injection':
-        return <Code className="h-4 w-4" />;
-      case 'sql_injection':
-        return <Database className="h-4 w-4" />;
-      case 'command_injection':
-        return <Terminal className="h-4 w-4" />;
-      case 'prompt_injection':
-        return <Brain className="h-4 w-4" />;
-      case 'data_exposure':
-        return <Eye className="h-4 w-4" />;
-      default:
-        return <Shield className="h-4 w-4" />;
-    }
-  };
-
-  const getSeverityColor = (severity: SecurityIssue['severity']) => {
+  const getSeverityIcon = (severity: string) => {
     switch (severity) {
       case 'high':
-        return 'text-red-600';
+        return <AlertTriangle className="h-4 w-4 text-red-400" />;
       case 'moderate':
-        return 'text-yellow-600';
+        return <Info className="h-4 w-4 text-yellow-400" />;
       case 'low':
-        return 'text-blue-600';
+        return <Bug className="h-4 w-4 text-blue-400" />;
       default:
-        return 'text-green-600';
+        return <CheckCircle className="h-4 w-4 text-terminal-green" />;
     }
   };
 
-  if (issues.length === 0) {
+  const getSeverityBadge = (severity: string) => {
+    const colors = {
+      high: 'bg-red-900/80 text-red-200 border-red-500/50',
+      moderate: 'bg-yellow-900/80 text-yellow-200 border-yellow-500/50',
+      low: 'bg-blue-900/80 text-blue-200 border-blue-500/50'
+    };
+    
     return (
-      <Card className="border-green-200 bg-green-50">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2 text-green-700">
-            <Shield className="h-5 w-5" />
-            <span className="font-medium">No Security Issues Detected</span>
-          </div>
-          <p className="text-sm text-green-600 mt-1">
-            The AI output appears to be safe and free of common security threats.
-          </p>
-        </CardContent>
-      </Card>
+      <Badge variant="outline" className={`${colors[severity as keyof typeof colors] || ''} text-xs font-mono tracking-wider`}>
+        [{severity.toUpperCase()}]
+      </Badge>
     );
+  };
+
+  if (!expertMode && issues.length === 0) {
+    return null;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <AlertTriangle className="h-4 w-4" />
-          Security Issues Found ({issues.length})
+    <Card className="border-terminal-green/30 bg-card">
+      <CardHeader className="pb-3 border-b border-terminal-green/20">
+        <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2">
+          <Bug className="h-4 w-4" />
+          THREAT_ANALYSIS_LOG
+          <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 font-mono text-xs">
+            {issues.length}
+          </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {issues.map((issue) => (
-          <Collapsible
-            key={issue.id}
-            open={expertMode || expandedIssues.has(issue.id)}
-            onOpenChange={() => !expertMode && toggleIssue(issue.id)}
-          >
-            <CollapsibleTrigger asChild>
-              <div className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 ${
-                issue.severity === 'high' ? 'border-red-200 bg-red-50' :
-                issue.severity === 'moderate' ? 'border-yellow-200 bg-yellow-50' :
-                'border-blue-200 bg-blue-50'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <div className={getSeverityColor(issue.severity)}>
-                    {getIssueIcon(issue.type)}
+      <CardContent className="pt-4">
+        {issues.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground font-mono text-xs">
+            <CheckCircle className="h-8 w-8 mx-auto mb-2 text-terminal-green" />
+            // NO_THREATS_DETECTED
+            <br />
+            // All security protocols passed
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {issues.map((issue, index) => (
+              <div 
+                key={index} 
+                className="flex items-start gap-3 p-3 rounded bg-terminal-bg border border-terminal-green/20"
+              >
+                {getSeverityIcon(issue.severity)}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    {getSeverityBadge(issue.severity)}
+                    <span className="font-mono text-xs text-terminal-green font-bold">
+                      {issue.type.replace(/_/g, '_').toUpperCase()}
+                    </span>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{issue.description}</p>
-                    {!expertMode && (
-                      <p className="text-xs text-muted-foreground">{issue.recommendation}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${getSeverityColor(issue.severity)}`}
-                  >
-                    {issue.severity.toUpperCase()}
-                  </Badge>
-                  {!expertMode && <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  <p className="text-xs font-mono text-muted-foreground leading-relaxed">
+                    // {issue.message}
+                  </p>
+                  {issue.details && expertMode && (
+                    <div className="mt-2 p-2 bg-terminal-bg/50 rounded border border-terminal-green/10">
+                      <pre className="text-xs font-mono text-terminal-green/80 whitespace-pre-wrap">
+                        {issue.details}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               </div>
-            </CollapsibleTrigger>
-            
-            {expertMode && (
-              <CollapsibleContent className="px-3 pb-3">
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  {issue.technicalDetails && (
-                    <div>
-                      <strong>Technical Details:</strong> {issue.technicalDetails}
-                    </div>
-                  )}
-                  {issue.location && (
-                    <div>
-                      <strong>Location:</strong> <code className="bg-muted px-1 rounded text-xs">{issue.location}</code>
-                    </div>
-                  )}
-                  <div>
-                    <strong>Recommendation:</strong> {issue.recommendation}
-                  </div>
-                </div>
-              </CollapsibleContent>
-            )}
-          </Collapsible>
-        ))}
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
