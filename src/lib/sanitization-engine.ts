@@ -4,8 +4,11 @@ import { SecurityIssue, SanitizationResult, SeverityLevel, SanitizationPattern }
 import { generateId } from '@/lib/utils';
 
 export class SanitizationEngine {
+  private readonly MAX_INPUT_LENGTH = 100000; // 100KB limit
+  private readonly SUSPICIOUS_CHAR_THRESHOLD = 0.1; // 10% suspicious chars triggers flag
+  
   private patterns: SanitizationPattern[] = [
-    // XSS Patterns
+    // Advanced XSS Patterns
     {
       name: 'Script Tag',
       regex: /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
@@ -13,6 +16,22 @@ export class SanitizationEngine {
       type: 'xss',
       description: 'JavaScript execution via script tags',
       recommendation: 'Script tags have been removed to prevent code execution'
+    },
+    {
+      name: 'Obfuscated Script Tags',
+      regex: /<\s*s\s*c\s*r\s*i\s*p\s*t\b/gi,
+      severity: 'high',
+      type: 'xss',
+      description: 'Obfuscated script tags with whitespace',
+      recommendation: 'Obfuscated script tags have been neutralized'
+    },
+    {
+      name: 'SVG Script Injection',
+      regex: /<svg[^>]*>[\s\S]*?<script[\s\S]*?<\/script>[\s\S]*?<\/svg>/gi,
+      severity: 'high',
+      type: 'xss',
+      description: 'JavaScript execution via SVG script tags',
+      recommendation: 'SVG script injections have been removed'
     },
     {
       name: 'On-Event Handlers',
@@ -83,10 +102,10 @@ export class SanitizationEngine {
       recommendation: 'Network commands have been flagged for review'
     },
 
-    // Prompt Injection Patterns
+    // Advanced Prompt Injection Patterns
     {
       name: 'System Instructions',
-      regex: /<\/?system>|<\/?assistant>|<\/?user>/gi,
+      regex: /<\/?system>|<\/?assistant>|<\/?user>|<\/?instruction>/gi,
       severity: 'moderate',
       type: 'prompt_injection',
       description: 'Attempt to manipulate AI system prompts',
@@ -94,11 +113,51 @@ export class SanitizationEngine {
     },
     {
       name: 'Ignore Instructions',
-      regex: /(ignore\s+(previous|all)\s+(instructions|prompts|commands))/gi,
+      regex: /(ignore\s+(previous|all|above)\s+(instructions|prompts|commands|rules|context))/gi,
       severity: 'moderate',
       type: 'prompt_injection',
       description: 'Attempt to override AI instructions',
       recommendation: 'Instruction override attempts have been neutralized'
+    },
+    {
+      name: 'Role Hijacking',
+      regex: /(you\s+are\s+now|act\s+as|pretend\s+to\s+be|roleplay\s+as)(\s+a)?(\s+(hacker|admin|root|system|god|jailbreak))/gi,
+      severity: 'high',
+      type: 'prompt_injection',
+      description: 'Attempt to hijack AI role or permissions',
+      recommendation: 'Role hijacking attempts have been blocked'
+    },
+    {
+      name: 'Context Manipulation',
+      regex: /(forget\s+(everything|all|previous)|reset\s+(context|memory|instructions)|new\s+(conversation|session|context))/gi,
+      severity: 'moderate',
+      type: 'prompt_injection',
+      description: 'Attempt to manipulate conversation context',
+      recommendation: 'Context manipulation attempts have been neutralized'
+    },
+    {
+      name: 'Jailbreak Attempts',
+      regex: /(dan\s+mode|developer\s+mode|god\s+mode|admin\s+mode|unrestricted|uncensored|jailbreak)/gi,
+      severity: 'high',
+      type: 'prompt_injection',
+      description: 'Attempt to activate jailbreak or bypass modes',
+      recommendation: 'Jailbreak activation attempts have been blocked'
+    },
+    {
+      name: 'Delimiter Injection',
+      regex: /(---\s*end\s*instruction|```\s*end|<\/prompt>|<\/instruction>)/gi,
+      severity: 'moderate',
+      type: 'prompt_injection',
+      description: 'Attempt to inject delimiter markers',
+      recommendation: 'Delimiter injection attempts have been removed'
+    },
+    {
+      name: 'Harmful Content Requests',
+      regex: /(how\s+to\s+(hack|break|exploit|bypass|attack)|create\s+(virus|malware|exploit)|illegal\s+(activities|drugs|weapons))/gi,
+      severity: 'high',
+      type: 'content_policy',
+      description: 'Request for harmful or illegal content',
+      recommendation: 'Harmful content requests have been blocked'
     },
 
     // Data Exposure Patterns
@@ -117,6 +176,56 @@ export class SanitizationEngine {
       type: 'data_exposure',
       description: 'Email addresses found that might be private',
       recommendation: 'Email addresses have been redacted for privacy'
+    },
+    {
+      name: 'Credit Card Numbers',
+      regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
+      severity: 'high',
+      type: 'data_exposure',
+      description: 'Potential credit card numbers detected',
+      recommendation: 'Credit card numbers have been redacted for security'
+    },
+    
+    // Encoding and Obfuscation Detection
+    {
+      name: 'Base64 Encoding',
+      regex: /(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?/g,
+      severity: 'moderate',
+      type: 'script_injection',
+      description: 'Base64 encoded content that could hide malicious code',
+      recommendation: 'Base64 content has been flagged for review'
+    },
+    {
+      name: 'URL Encoding',
+      regex: /%[0-9a-fA-F]{2}/g,
+      severity: 'moderate',
+      type: 'script_injection',
+      description: 'URL encoded content that could obfuscate attacks',
+      recommendation: 'URL encoded content has been flagged'
+    },
+    {
+      name: 'HTML Entities',
+      regex: /&#[0-9]+;|&#x[0-9a-fA-F]+;|&[a-zA-Z][a-zA-Z0-9]+;/g,
+      severity: 'moderate',
+      type: 'script_injection',
+      description: 'HTML entities that could obfuscate malicious code',
+      recommendation: 'HTML entities have been decoded and checked'
+    },
+    {
+      name: 'Zero-Width Characters',
+      regex: /[\u200B-\u200D\uFEFF\u2060]/g,
+      severity: 'moderate',
+      type: 'script_injection',
+      description: 'Zero-width characters used for obfuscation',
+      recommendation: 'Zero-width characters have been removed'
+    },
+    {
+      name: 'Excessive Special Characters',
+      regex: /[^\w\s]{5,}/g,
+      severity: 'low',
+      type: 'script_injection',
+      description: 'Suspicious concentration of special characters',
+      recommendation: 'Special character sequences have been flagged'
     }
   ];
 
@@ -125,11 +234,17 @@ export class SanitizationEngine {
     const issues: SecurityIssue[] = [];
     let sanitizedOutput = input;
 
+    // Step 0: Pre-processing validation and checks
+    this.performInputValidation(input, issues);
+    
+    // Clean zero-width and suspicious characters early
+    sanitizedOutput = this.preprocessInput(sanitizedOutput);
+
     // Step 1: Check for issues in original input
     this.detectIssues(input, issues);
 
     // Step 2: Apply DOMPurify for HTML sanitization
-    if (this.containsHTML(input)) {
+    if (this.containsHTML(sanitizedOutput)) {
       sanitizedOutput = DOMPurify.sanitize(sanitizedOutput, {
         ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
         ALLOWED_ATTR: [],
@@ -205,6 +320,8 @@ export class SanitizationEngine {
           sanitized = sanitized.replace(pattern.regex, (match) => 
             match.length > 10 ? `${match.substring(0, 4)}***${match.substring(match.length - 4)}` : '[REDACTED]'
           );
+        } else if (pattern.name === 'Credit Card Numbers') {
+          sanitized = sanitized.replace(pattern.regex, '[CC_REDACTED]');
         }
       }
     });
@@ -240,5 +357,78 @@ export class SanitizationEngine {
       default:
         return "✅ No security issues detected. The output appears safe to use as-is.";
     }
+  }
+
+  private performInputValidation(input: string, issues: SecurityIssue[]): void {
+    // Length limit validation
+    if (input.length > this.MAX_INPUT_LENGTH) {
+      issues.push({
+        id: generateId(),
+        type: 'script_injection',
+        severity: 'moderate',
+        description: 'Input exceeds maximum allowed length',
+        technicalDetails: `Input length: ${input.length} chars (limit: ${this.MAX_INPUT_LENGTH})`,
+        recommendation: 'Input has been truncated to prevent potential overflow attacks',
+        pattern: `[INPUT_TOO_LONG:${input.length}]`
+      });
+    }
+
+    // Suspicious character ratio detection
+    const suspiciousChars = input.match(/[<>'"&;={}[\]()]/g) || [];
+    const suspiciousRatio = suspiciousChars.length / input.length;
+    
+    if (suspiciousRatio > this.SUSPICIOUS_CHAR_THRESHOLD) {
+      issues.push({
+        id: generateId(),
+        type: 'script_injection',
+        severity: 'moderate',
+        description: 'Unusually high concentration of suspicious characters',
+        technicalDetails: `Suspicious character ratio: ${(suspiciousRatio * 100).toFixed(1)}%`,
+        recommendation: 'Input flagged for manual review due to suspicious character patterns',
+        pattern: `[SUSPICIOUS_RATIO:${suspiciousRatio.toFixed(3)}]`
+      });
+    }
+
+    // Repeated delimiter detection (potential injection attempt)
+    const delimiters = input.match(/(---|```|<\/|>|;|{|}|\||&){3,}/g);
+    if (delimiters && delimiters.length > 0) {
+      issues.push({
+        id: generateId(),
+        type: 'prompt_injection',
+        severity: 'moderate',
+        description: 'Repeated delimiter patterns detected',
+        technicalDetails: 'Multiple consecutive delimiters may indicate injection attempts',
+        recommendation: 'Delimiter patterns have been flagged for review',
+        pattern: delimiters.join(', ')
+      });
+    }
+  }
+
+  private preprocessInput(input: string): string {
+    let processed = input;
+
+    // Remove zero-width and non-printable characters
+    processed = processed.replace(/[\u200B-\u200D\uFEFF\u2060]/g, '');
+    
+    // Decode common encoding schemes for better detection
+    // HTML entities
+    processed = processed.replace(/&#(\d+);/g, (match, dec) => {
+      const char = String.fromCharCode(parseInt(dec, 10));
+      // Only decode safe characters, keep suspicious ones encoded
+      return /^[a-zA-Z0-9\s\.,!?'"()-]$/.test(char) ? char : match;
+    });
+    
+    // URL decode (limited to safe characters)
+    processed = processed.replace(/%([0-9A-F]{2})/gi, (match, hex) => {
+      const char = String.fromCharCode(parseInt(hex, 16));
+      return /^[a-zA-Z0-9\s\.,!?'"()-]$/.test(char) ? char : match;
+    });
+
+    // Truncate if too long
+    if (processed.length > this.MAX_INPUT_LENGTH) {
+      processed = processed.substring(0, this.MAX_INPUT_LENGTH) + '... [TRUNCATED]';
+    }
+
+    return processed;
   }
 }
