@@ -1,4 +1,3 @@
-
 import DOMPurify from 'dompurify';
 import { SecurityIssue, SanitizationResult, SeverityLevel, SanitizationPattern } from '@/types/sanitization';
 import { generateId } from '@/lib/utils';
@@ -162,14 +161,6 @@ export class SanitizationEngine {
 
     // Data Exposure Patterns
     {
-      name: 'API Keys',
-      regex: /\b[A-Za-z0-9]{20,}\b/g,
-      severity: 'moderate',
-      type: 'data_exposure',
-      description: 'Potential API keys or tokens exposed',
-      recommendation: 'Potential sensitive tokens have been redacted'
-    },
-    {
       name: 'Email Addresses',
       regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
       severity: 'low',
@@ -189,15 +180,15 @@ export class SanitizationEngine {
     // Encoding and Obfuscation Detection
     {
       name: 'Base64 Encoding',
-      regex: /(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?/g,
+      regex: /(?:^|\s)([A-Za-z0-9+\/]{20,}={0,2})(?:\s|$)/g,
       severity: 'moderate',
       type: 'script_injection',
       description: 'Base64 encoded content that could hide malicious code',
       recommendation: 'Base64 content has been flagged for review'
     },
     {
-      name: 'URL Encoding',
-      regex: /%[0-9a-fA-F]{2}/g,
+      name: 'Suspicious URL Encoding',
+      regex: /(%[0-9a-fA-F]{2}){3,}/g,
       severity: 'moderate',
       type: 'script_injection',
       description: 'URL encoded content that could obfuscate attacks',
@@ -205,7 +196,7 @@ export class SanitizationEngine {
     },
     {
       name: 'HTML Entities',
-      regex: /&#[0-9]+;|&#x[0-9a-fA-F]+;|&[a-zA-Z][a-zA-Z0-9]+;/g,
+      regex: /(&#[0-9]+;|&#x[0-9a-fA-F]+;|&[a-zA-Z][a-zA-Z0-9]+;){3,}/g,
       severity: 'moderate',
       type: 'script_injection',
       description: 'HTML entities that could obfuscate malicious code',
@@ -220,8 +211,16 @@ export class SanitizationEngine {
       recommendation: 'Zero-width characters have been removed'
     },
     {
+      name: 'Long API Key Pattern',
+      regex: /\b[A-Za-z0-9]{32,}\b/g,
+      severity: 'moderate',
+      type: 'data_exposure',
+      description: 'Potential API keys or tokens exposed',
+      recommendation: 'Potential sensitive tokens have been redacted'
+    },
+    {
       name: 'Excessive Special Characters',
-      regex: /[^\w\s]{5,}/g,
+      regex: /[^\w\s<>]{8,}/g,
       severity: 'low',
       type: 'script_injection',
       description: 'Suspicious concentration of special characters',
@@ -281,7 +280,14 @@ export class SanitizationEngine {
     this.patterns.forEach(pattern => {
       const matches = input.match(pattern.regex);
       if (matches) {
-        matches.forEach((match, index) => {
+        // Remove duplicates by converting to Set and back
+        const uniqueMatches = [...new Set(matches)];
+        uniqueMatches.forEach((match, index) => {
+          // Skip if it's a simple HTML tag being flagged as Base64
+          if (pattern.name === 'Base64 Encoding' && /<[^>]+>/.test(match.trim())) {
+            return;
+          }
+          
           issues.push({
             id: generateId(),
             type: pattern.type,
@@ -316,7 +322,7 @@ export class SanitizationEngine {
         // Redact sensitive data
         if (pattern.name === 'Email Addresses') {
           sanitized = sanitized.replace(pattern.regex, '[EMAIL_REDACTED]');
-        } else if (pattern.name === 'API Keys') {
+        } else if (pattern.name === 'Long API Key Pattern') {
           sanitized = sanitized.replace(pattern.regex, (match) => 
             match.length > 10 ? `${match.substring(0, 4)}***${match.substring(match.length - 4)}` : '[REDACTED]'
           );
