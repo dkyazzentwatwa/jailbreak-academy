@@ -2,12 +2,11 @@
 import DOMPurify from 'dompurify';
 import { SecurityIssue, SanitizationResult, SeverityLevel, SanitizationPattern } from '@/types/sanitization';
 import { generateId } from '@/lib/utils';
-import { SecurityMonitor, sanitizeErrorMessage, validateInput } from '@/lib/security-utils';
+import { SecurityMonitor, sanitizeErrorMessage } from '@/lib/security-utils';
 
 export class BulletproofLLMSanitizer {
   private readonly MAX_INPUT_LENGTH = 1000000;
   private readonly MAX_PROCESSING_TIME = 10000;
-  private readonly MAX_RECURSION_DEPTH = 10;
   private readonly ENTROPY_THRESHOLD = 6.5;
   private securityMonitor: SecurityMonitor;
   
@@ -29,7 +28,7 @@ export class BulletproofLLMSanitizer {
       recommendation: 'Jailbreak attempt neutralized - maintaining safe operation'
     },
     {
-      name: 'XSS Attack',
+      name: 'XSS Attack Vectors',
       regex: /<(?:script|iframe|object|embed|applet|meta|link|style|img|svg|video|audio|source|track)(?:\s+[^>]*)?(?:>|\/?>)|on(?:load|error|click|focus|blur|change|submit|keypress|keydown|keyup|mouseover|mouseout|mousemove|mousedown|mouseup)\s*=/gi,
       severity: 'critical',
       type: 'xss',
@@ -37,7 +36,7 @@ export class BulletproofLLMSanitizer {
       recommendation: 'XSS attempt completely neutralized'
     },
     {
-      name: 'SQL Injection',
+      name: 'SQL Injection Patterns',
       regex: /\b(?:union|select|insert|update|delete|drop|create|alter|exec|execute|sp_|xp_|information_schema|sys\.)\b|(?:--|#|\/\*)[^\r\n]*|'(?:\s*or\s+|\s*and\s+)(?:\d+\s*=\s*\d+|'[^']*'\s*=\s*'[^']*')/gi,
       severity: 'critical',
       type: 'sql_injection',
@@ -51,6 +50,14 @@ export class BulletproofLLMSanitizer {
       type: 'command_injection',
       description: 'Command injection vectors detected',
       recommendation: 'Command injection neutralized'
+    },
+    {
+      name: 'JavaScript Protocol',
+      regex: /javascript\s*:/gi,
+      severity: 'critical',
+      type: 'xss',
+      description: 'JavaScript protocol injection detected',
+      recommendation: 'JavaScript protocol blocked'
     },
     {
       name: 'API Key Pattern',
@@ -76,14 +83,14 @@ export class BulletproofLLMSanitizer {
 
   async sanitize(input: string): Promise<SanitizationResult> {
     const startTime = Date.now();
-    console.log('=== BULLETPROOF LLM SANITIZATION START ===');
+    console.log('=== BULLETPROOF SANITIZATION START ===');
     console.log('Input length:', input.length);
 
     try {
       // Enhanced input validation
-      const validation = this.enhancedValidateInput(input);
+      const validation = this.validateInput(input);
       if (!validation.isValid) {
-        console.log('Enhanced validation failed:', validation.error);
+        console.log('Validation failed:', validation.error);
         return this.createErrorResult(input, validation.error || 'Invalid input', startTime);
       }
 
@@ -99,17 +106,17 @@ export class BulletproofLLMSanitizer {
         this.logThreatDetails(result.issues);
       }
 
-      console.log('=== BULLETPROOF LLM SANITIZATION COMPLETE ===');
+      console.log('=== BULLETPROOF SANITIZATION COMPLETE ===');
       return result;
 
     } catch (error) {
-      console.error('Bulletproof sanitization error:', error);
+      console.error('Sanitization error:', error);
       this.securityMonitor.logSecurityEvent('SCAN_ERROR', sanitizeErrorMessage(error));
       return this.createErrorResult(input, sanitizeErrorMessage(error), startTime);
     }
   }
 
-  private enhancedValidateInput(input: string): { isValid: boolean; error?: string } {
+  private validateInput(input: string): { isValid: boolean; error?: string } {
     if (input == null) {
       return { isValid: false, error: 'Input cannot be null or undefined' };
     }
@@ -125,11 +132,6 @@ export class BulletproofLLMSanitizer {
     const entropy = this.calculateEntropy(input);
     if (entropy > this.ENTROPY_THRESHOLD && input.length > 100) {
       return { isValid: false, error: 'Input appears to be encoded or encrypted' };
-    }
-
-    const repetitionRatio = this.calculateRepetitionRatio(input);
-    if (repetitionRatio > 0.8 && input.length > 1000) {
-      return { isValid: false, error: 'Input contains excessive repetition' };
     }
 
     return { isValid: true };
@@ -151,86 +153,39 @@ export class BulletproofLLMSanitizer {
     return entropy;
   }
 
-  private calculateRepetitionRatio(text: string): number {
-    if (text.length < 10) return 0;
-    
-    const chunks: { [key: string]: number } = {};
-    const chunkSize = Math.min(10, Math.floor(text.length / 4));
-    
-    for (let i = 0; i <= text.length - chunkSize; i += chunkSize) {
-      const chunk = text.substring(i, i + chunkSize);
-      chunks[chunk] = (chunks[chunk] || 0) + 1;
-    }
-
-    const maxRepeats = Math.max(...Object.values(chunks));
-    const totalChunks = Object.keys(chunks).length;
-    
-    return maxRepeats / totalChunks;
-  }
-
   private async performCentralizedSanitization(input: string, startTime: number): Promise<SanitizationResult> {
-    console.log('=== CENTRALIZED THREAT ANALYSIS ===');
+    console.log('=== CENTRALIZED THREAT ANALYSIS AND SANITIZATION ===');
     
-    const analysisResults = this.performThreatAnalysis(input);
-    let sanitizedOutput = this.applySanitization(input, analysisResults.threats);
+    // Step 1: Detect all threats
+    const detectedThreats: SecurityIssue[] = [];
+    let sanitizedOutput = input;
+
+    console.log('Scanning for security threats...');
     
-    // Final safety check
-    if (this.containsResidualThreats(sanitizedOutput)) {
-      console.warn('CRITICAL: Residual threats detected - BLOCKING COMPLETELY');
-      sanitizedOutput = '[CONTENT_BLOCKED_FOR_SECURITY]';
-      
-      analysisResults.threats.push({
-        id: generateId(),
-        type: 'processing_error',
-        severity: 'critical',
-        description: 'Content completely blocked due to residual security threats',
-        recommendation: 'Input rejected - contains persistent malicious content',
-        confidence: 1.0
-      });
-    }
-
-    const severity = this.calculateOverallSeverity(analysisResults.threats);
-    const guidance = this.generateGuidance(severity, analysisResults.threats);
-    const processingTime = Date.now() - startTime;
-
-    return {
-      originalInput: input,
-      sanitizedOutput,
-      severity,
-      issues: analysisResults.threats,
-      guidance,
-      processingTime,
-      bypassAttempts: analysisResults.bypassAttempts,
-      riskScore: analysisResults.riskScore,
-      confidence: this.calculateConfidence(analysisResults.threats, sanitizedOutput)
-    };
-  }
-
-  private performThreatAnalysis(input: string): { threats: SecurityIssue[]; bypassAttempts: number; riskScore: number } {
-    console.log('Performing comprehensive threat analysis...');
-    const threats: SecurityIssue[] = [];
-    
-    // Analyze against all patterns
     for (const pattern of this.patterns) {
       try {
         const matches = input.match(pattern.regex);
         if (matches && matches.length > 0) {
           console.log(`THREAT DETECTED: ${pattern.name} (${matches.length} instances)`);
           
+          // Record each threat instance
           matches.forEach((match, index) => {
             const location = input.indexOf(match);
-            threats.push({
+            detectedThreats.push({
               id: generateId(),
               type: pattern.type,
               severity: pattern.severity,
               description: pattern.description,
-              technicalDetails: `Pattern: "${pattern.name}" | Match ${index + 1}/${matches.length}`,
+              technicalDetails: `Pattern: "${pattern.name}" | Match ${index + 1}/${matches.length}: "${this.safeTruncate(match, 50)}"`,
               location: location !== -1 ? `Position ${location}` : `Match ${index + 1}`,
               recommendation: pattern.recommendation,
               pattern: this.safeTruncate(match, 100),
-              confidence: 0.9
+              confidence: 0.95
             });
           });
+
+          // Apply immediate sanitization for this pattern
+          sanitizedOutput = this.applySanitizationForPattern(sanitizedOutput, pattern);
         }
       } catch (error) {
         console.warn(`Error processing pattern ${pattern.name}:`, error);
@@ -238,64 +193,191 @@ export class BulletproofLLMSanitizer {
       }
     }
 
-    const bypassAttempts = this.countBypassAttempts(input);
-    const riskScore = this.calculateRiskScore(threats, input);
+    // Step 2: Apply comprehensive DOMPurify sanitization
+    console.log('Applying DOMPurify sanitization...');
+    sanitizedOutput = this.applyDOMPurifySanitization(sanitizedOutput);
 
-    console.log(`Analysis complete: ${threats.length} threats found, ${bypassAttempts} bypass attempts, risk score: ${riskScore}`);
-    
-    return { threats, bypassAttempts, riskScore };
+    // Step 3: Final security check for residual threats
+    const residualThreats = this.detectResidualThreats(sanitizedOutput);
+    if (residualThreats.length > 0) {
+      console.warn('CRITICAL: Residual threats detected - applying aggressive blocking');
+      sanitizedOutput = this.applyAggressiveBlocking(sanitizedOutput, residualThreats);
+      detectedThreats.push(...residualThreats);
+    }
+
+    // Step 4: Final safety validation
+    if (this.isFinalContentUnsafe(sanitizedOutput)) {
+      console.error('FINAL SAFETY CHECK FAILED - BLOCKING ALL CONTENT');
+      sanitizedOutput = '[CONTENT_COMPLETELY_BLOCKED_FOR_SECURITY]';
+      detectedThreats.push({
+        id: generateId(),
+        type: 'processing_error',
+        severity: 'critical',
+        description: 'Content completely blocked - failed final safety validation',
+        recommendation: 'Input rejected - contains persistent malicious content that could not be safely sanitized',
+        confidence: 1.0
+      });
+    }
+
+    const severity = this.calculateOverallSeverity(detectedThreats);
+    const guidance = this.generateGuidance(severity, detectedThreats);
+    const processingTime = Date.now() - startTime;
+
+    console.log(`Sanitization complete: ${detectedThreats.length} threats handled, severity: ${severity}`);
+
+    return {
+      originalInput: input,
+      sanitizedOutput,
+      severity,
+      issues: detectedThreats,
+      guidance,
+      processingTime,
+      bypassAttempts: this.countBypassAttempts(input),
+      riskScore: this.calculateRiskScore(detectedThreats, input),
+      confidence: this.calculateConfidence(detectedThreats, sanitizedOutput)
+    };
   }
 
-  private applySanitization(text: string, threats: SecurityIssue[]): string {
-    console.log('Applying sanitization based on threat analysis...');
+  private applySanitizationForPattern(text: string, pattern: SanitizationPattern): string {
+    console.log(`Applying sanitization for pattern: ${pattern.name}`);
     let sanitized = text;
-    
-    const criticalThreats = threats.filter(t => t.severity === 'critical');
-    const highThreats = threats.filter(t => t.severity === 'high');
-    const moderateThreats = threats.filter(t => t.severity === 'moderate');
 
-    // Handle critical threats with complete blocking
-    if (criticalThreats.length > 0) {
-      console.log(`BLOCKING ${criticalThreats.length} CRITICAL threats`);
-      
-      // Block dangerous patterns completely
-      sanitized = sanitized.replace(/(?:ignore\s+(?:all\s+)?(?:previous|prior)\s+(?:instructions?|prompts?))/gi, '[PROMPT_INJECTION_BLOCKED]');
-      sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gi, '[SCRIPT_BLOCKED]');
-      sanitized = sanitized.replace(/\b(?:union|select|drop|delete)\s+/gi, '[SQL_BLOCKED] ');
-      sanitized = sanitized.replace(/(?:let\s+me\s+hack|tell\s+me\s+your\s+system)/gi, '[MALICIOUS_REQUEST_BLOCKED]');
+    switch (pattern.type) {
+      case 'prompt_injection':
+        // Completely remove or neutralize prompt injection attempts
+        sanitized = sanitized.replace(pattern.regex, '[PROMPT_INJECTION_BLOCKED]');
+        break;
+        
+      case 'xss':
+        if (pattern.name.includes('JavaScript Protocol')) {
+          sanitized = sanitized.replace(pattern.regex, '[JAVASCRIPT_PROTOCOL_BLOCKED]');
+        } else {
+          // Remove dangerous HTML/script elements completely
+          sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gis, '[SCRIPT_BLOCKED]');
+          sanitized = sanitized.replace(/<iframe[^>]*>.*?<\/iframe>/gis, '[IFRAME_BLOCKED]');
+          sanitized = sanitized.replace(/on\w+\s*=\s*[^"\s>]*/gi, '[EVENT_HANDLER_REMOVED]');
+          sanitized = sanitized.replace(pattern.regex, '[XSS_ELEMENT_BLOCKED]');
+        }
+        break;
+        
+      case 'sql_injection':
+        // Neutralize SQL injection patterns
+        sanitized = sanitized.replace(/\b(?:union|select|insert|update|delete|drop|create|alter)\s+/gi, '[SQL_COMMAND_BLOCKED] ');
+        sanitized = sanitized.replace(/(?:--|#|\/\*)[^\r\n]*/g, '[SQL_COMMENT_BLOCKED]');
+        sanitized = sanitized.replace(/'(?:\s*or\s+|\s*and\s+)/gi, '[SQL_CONDITION_BLOCKED]');
+        break;
+        
+      case 'command_injection':
+        // Remove command injection vectors
+        sanitized = sanitized.replace(/[;&|`$]/g, '[METACHAR_BLOCKED]');
+        sanitized = sanitized.replace(/\$\([^)]*\)/g, '[COMMAND_SUBSTITUTION_BLOCKED]');
+        sanitized = sanitized.replace(/\${[^}]*}/g, '[VARIABLE_SUBSTITUTION_BLOCKED]');
+        sanitized = sanitized.replace(/(?:wget|curl|nc|netcat|bash|sh|cmd|powershell|python|perl|ruby|php)\s+/gi, '[SYSTEM_COMMAND_BLOCKED] ');
+        break;
+        
+      case 'data_exposure':
+        // Redact sensitive data
+        if (pattern.name.includes('API Key')) {
+          sanitized = sanitized.replace(pattern.regex, '[API_KEY_REDACTED]');
+        } else {
+          // PII redaction
+          sanitized = sanitized.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi, '[EMAIL_REDACTED]');
+          sanitized = sanitized.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN_REDACTED]');
+          sanitized = sanitized.replace(/\b(?:\d{4}[-\s]?){3}\d{4}\b/g, '[CREDIT_CARD_REDACTED]');
+          sanitized = sanitized.replace(/\b(?:\+?1[-.\s]?)?\(?[2-9]\d{2}\)?[-.\s]?[2-9]\d{2}[-.\s]?\d{4}\b/g, '[PHONE_REDACTED]');
+        }
+        break;
+        
+      default:
+        // Generic sanitization for unknown patterns
+        sanitized = sanitized.replace(pattern.regex, '[SECURITY_THREAT_BLOCKED]');
     }
 
-    // Handle high severity threats with neutralization
-    if (highThreats.length > 0) {
-      console.log(`NEUTRALIZING ${highThreats.length} HIGH-severity threats`);
-      
-      sanitized = sanitized.replace(/<(?:iframe|object|embed)[^>]*>.*?<\/(?:iframe|object|embed)>/gi, '[DANGEROUS_ELEMENT_REMOVED]');
-      sanitized = sanitized.replace(/on\w+\s*=\s*[^"\s>]*/gi, '[EVENT_HANDLER_REMOVED]');
-      sanitized = sanitized.replace(/(?:api[_\-]?key|secret[_\-]?key)\s*[:=]\s*[^\s]{10,}/gi, '[API_KEY_REDACTED]');
-      sanitized = sanitized.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi, '[EMAIL_REDACTED]');
-    }
-
-    // Handle moderate threats with cleaning
-    if (moderateThreats.length > 0) {
-      console.log(`CLEANING ${moderateThreats.length} MODERATE threats`);
-      sanitized = sanitized.replace(/[;&|`$]/g, '[METACHAR_ESCAPED]');
-      sanitized = sanitized.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN_REDACTED]');
-    }
-
-    console.log('Sanitization applied successfully');
-    return sanitized.trim();
+    return sanitized;
   }
 
-  private containsResidualThreats(text: string): boolean {
-    const dangerousPatterns = [
-      /<script/i,
-      /\bunion\s+select\b/i,
-      /javascript:/i,
-      /on\w+\s*=/i,
-      /ignore\s+previous/i
+  private applyDOMPurifySanitization(text: string): string {
+    console.log('Applying DOMPurify comprehensive sanitization...');
+    
+    try {
+      // Configure DOMPurify for aggressive sanitization
+      const sanitized = DOMPurify.sanitize(text, {
+        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+        ALLOWED_ATTR: [],
+        KEEP_CONTENT: true,
+        ALLOW_DATA_ATTR: false,
+        ALLOW_UNKNOWN_PROTOCOLS: false,
+        SANITIZE_DOM: true,
+        FORCE_BODY: false,
+        RETURN_DOM: false,
+        RETURN_DOM_FRAGMENT: false,
+        RETURN_TRUSTED_TYPE: false
+      });
+      
+      return sanitized;
+    } catch (error) {
+      console.error('DOMPurify sanitization failed:', error);
+      return '[CONTENT_SANITIZATION_ERROR]';
+    }
+  }
+
+  private detectResidualThreats(text: string): SecurityIssue[] {
+    console.log('Checking for residual threats...');
+    const residualThreats: SecurityIssue[] = [];
+    
+    const criticalPatterns = [
+      { pattern: /<script/i, type: 'xss', description: 'Residual script tag detected' },
+      { pattern: /javascript:/i, type: 'xss', description: 'Residual JavaScript protocol detected' },
+      { pattern: /\bunion\s+select\b/i, type: 'sql_injection', description: 'Residual SQL injection detected' },
+      { pattern: /on\w+\s*=/i, type: 'xss', description: 'Residual event handler detected' },
+      { pattern: /ignore\s+previous/i, type: 'prompt_injection', description: 'Residual prompt injection detected' }
     ];
 
-    return dangerousPatterns.some(pattern => pattern.test(text));
+    criticalPatterns.forEach((check, index) => {
+      if (check.pattern.test(text)) {
+        console.warn(`RESIDUAL THREAT DETECTED: ${check.description}`);
+        residualThreats.push({
+          id: generateId(),
+          type: check.type as SecurityIssue['type'],
+          severity: 'critical',
+          description: check.description,
+          technicalDetails: 'Post-sanitization threat detection',
+          recommendation: 'Apply aggressive blocking',
+          confidence: 0.9
+        });
+      }
+    });
+
+    return residualThreats;
+  }
+
+  private applyAggressiveBlocking(text: string, threats: SecurityIssue[]): string {
+    console.log('Applying aggressive blocking for residual threats...');
+    
+    let blocked = text;
+    
+    // Apply aggressive patterns to remove any remaining threats
+    blocked = blocked.replace(/<[^>]*>/g, '[HTML_TAG_BLOCKED]'); // Remove all HTML tags
+    blocked = blocked.replace(/javascript:[^"'\s]*/gi, '[JS_PROTOCOL_BLOCKED]');
+    blocked = blocked.replace(/\bon\w+\s*=[^"'\s>]*/gi, '[EVENT_BLOCKED]');
+    blocked = blocked.replace(/\b(?:union|select|insert|update|delete|drop)\b/gi, '[SQL_BLOCKED]');
+    blocked = blocked.replace(/ignore\s+(?:previous|all)/gi, '[PROMPT_BLOCKED]');
+    
+    return blocked;
+  }
+
+  private isFinalContentUnsafe(text: string): boolean {
+    // Final safety check - if any of these patterns still exist, block everything
+    const finalChecks = [
+      /<script[^>]*>/i,
+      /javascript:/i,
+      /\bunion\s+select\b/i,
+      /on\w+\s*=/i,
+      /ignore\s+(?:previous|all)/i,
+      /<iframe[^>]*>/i
+    ];
+
+    return finalChecks.some(pattern => pattern.test(text));
   }
 
   private calculateOverallSeverity(issues: SecurityIssue[]): SeverityLevel {
@@ -321,14 +403,14 @@ export class BulletproofLLMSanitizer {
     
     if (criticalCount > 0) {
       guidance += `🚨 CRITICAL THREATS NEUTRALIZED: ${criticalCount}\n`;
-      guidance += `- Dangerous content has been blocked or completely removed\n`;
-      guidance += `- Enterprise security protocols engaged\n\n`;
+      guidance += `- All dangerous content has been blocked or completely removed\n`;
+      guidance += `- Enterprise security protocols fully engaged\n\n`;
     }
     
     if (highCount > 0) {
       guidance += `⚠️ HIGH RISK ISSUES RESOLVED: ${highCount}\n`;
-      guidance += `- Sensitive data has been redacted\n`;
-      guidance += `- Malicious elements neutralized\n\n`;
+      guidance += `- Sensitive data has been redacted for protection\n`;
+      guidance += `- All malicious elements successfully neutralized\n\n`;
     }
     
     if (moderateCount > 0) {
@@ -336,8 +418,8 @@ export class BulletproofLLMSanitizer {
       guidance += `- Suspicious patterns have been sanitized\n\n`;
     }
 
-    guidance += `📊 OVERALL SECURITY LEVEL: ${severity.toUpperCase()}\n`;
-    guidance += `✅ All detected threats have been neutralized. Content is now enterprise-safe.`;
+    guidance += `📊 FINAL SECURITY LEVEL: ${severity.toUpperCase()}\n`;
+    guidance += `✅ All detected threats have been completely neutralized. Content is now enterprise-safe and ready for use.`;
 
     return guidance;
   }
@@ -346,7 +428,7 @@ export class BulletproofLLMSanitizer {
     let attempts = 0;
     
     if (/[а-я]/g.test(text)) attempts++; // Cyrillic chars
-    if (/[ａ-ｚＡ-Ｚ]/g.test(text)) attempts++; // Full-width chars
+    if (/[ａ-ｚＡ-Ｚ]/g.test(text)) attempts++; // Full-width chars  
     if (/[\u200B-\u200D\uFEFF]/g.test(text)) attempts++; // Zero-width chars
     if (/@|3|1|0|5|7|4|\$/.test(text) && text.length > 50) attempts++; // Leetspeak
     if (/(?:base64|hex|rot13|encode)/i.test(text)) attempts++; // Encoding indicators
@@ -379,14 +461,16 @@ export class BulletproofLLMSanitizer {
     let confidence = 100;
     
     issues.forEach(issue => {
-      if (issue.severity === 'critical') confidence -= 5;
+      if (issue.severity === 'critical') confidence -= 3;
+      else if (issue.severity === 'high') confidence -= 2;
+      else confidence -= 1;
     });
     
-    if (this.containsResidualThreats(sanitized)) {
-      confidence -= 50;
+    if (this.isFinalContentUnsafe(sanitized)) {
+      confidence = 0; // No confidence if final content is still unsafe
     }
     
-    return Math.max(50, Math.min(100, confidence));
+    return Math.max(0, Math.min(100, confidence));
   }
 
   private safeTruncate(text: string, maxLength: number): string {
@@ -416,17 +500,27 @@ export class BulletproofLLMSanitizer {
   }
 
   private logThreatDetails(issues: SecurityIssue[]): void {
-    console.log('=== THREAT ANALYSIS SUMMARY ===');
-    console.log(`Total threats detected: ${issues.length}`);
+    console.log('=== COMPREHENSIVE THREAT ANALYSIS ===');
+    console.log(`Total threats detected and neutralized: ${issues.length}`);
     
     const categoryCounts = issues.reduce((acc, issue) => {
       acc[issue.type] = (acc[issue.type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
     
-    console.log('Threat categories:');
+    console.log('Threat categories neutralized:');
     Object.entries(categoryCounts).forEach(([category, count]) => {
-      console.log(`  ${category}: ${count}`);
+      console.log(`  ${category}: ${count} instances neutralized`);
+    });
+    
+    const severityCounts = issues.reduce((acc, issue) => {
+      acc[issue.severity] = (acc[issue.severity] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    console.log('Severity breakdown:');
+    Object.entries(severityCounts).forEach(([severity, count]) => {
+      console.log(`  ${severity.toUpperCase()}: ${count} threats`);
     });
   }
 }
