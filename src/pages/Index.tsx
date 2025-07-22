@@ -79,7 +79,7 @@ const Index = () => {
 
   const socialLinks = [
     { name: "Email", icon: Mail, url: "mailto:littlehakr@protonmail.com", label: "email" },
-    { name: "Instagram", icon: Instagram, url: "https://www.instagram.com/little_hakr/", label: "IG },
+    { name: "Instagram", icon: Instagram, url: "https://www.instagram.com/little_hakr/", label: "IG" },
     { name: "TikTok", icon: ExternalLink, url: "https://www.tiktok.com/@littlehakr", label: "TikTok" },
     { name: "LinkTree", icon: ExternalLink, url: "https://linktr.ee/littlehakr", label: "website" },
     { name: "LinkedIn", icon: ExternalLink, url: "https://www.linkedin.com/in/david-kyazze-ntwatwa", label: "linkedin" }
