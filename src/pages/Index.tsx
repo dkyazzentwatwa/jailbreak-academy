@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Shield, Zap, BarChart3, AlertTriangle, CheckCircle, Clock, Scan } from "lucide-react";
-import { SanitizationEngine } from "@/lib/sanitization-engine";
+import { sanitizationEngine } from "@/lib/sanitization-engine";
 import { SanitizationResult } from "@/types/sanitization";
 import { OutputDisplay } from "@/components/OutputDisplay";
 import { IssuesList } from "@/components/IssuesList";
@@ -22,7 +21,6 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [expertMode, setExpertMode] = useState(false);
   const [showBootAnimation, setShowBootAnimation] = useState(true);
-  const [sanitizer] = useState(() => new SanitizationEngine());
 
   // Hide boot animation after 3 seconds
   useEffect(() => {
@@ -40,15 +38,18 @@ const Index = () => {
     setIsProcessing(true);
     
     try {
-      console.log("Calling sanitizer.sanitize...");
-      const sanitizationResult = await sanitizer.sanitize(input);
+      console.log("Calling sanitizationEngine.sanitize...");
+      const sanitizationResult = await sanitizationEngine.sanitize(input);
       console.log("Sanitization complete:", sanitizationResult);
       setResult(sanitizationResult);
       
       // Show appropriate toast based on severity
       switch (sanitizationResult.severity) {
-        case 'high':
+        case 'critical':
           toast.error(`Critical threats detected and neutralized!`);
+          break;
+        case 'high':
+          toast.error(`High severity threats detected and neutralized!`);
           break;
         case 'moderate':
           toast.warning(`${sanitizationResult.issues.length} potential issues found and handled`);
@@ -69,7 +70,7 @@ const Index = () => {
   };
 
   // Get security metrics
-  const metrics = sanitizer['securityMonitor']?.getMetrics() || {
+  const metrics = sanitizationEngine['securityMonitor']?.getMetrics() || {
     totalScans: 0,
     threatsBlocked: 0,
     falsePositives: 0,
@@ -252,7 +253,7 @@ const Index = () => {
               <>
                 {/* Summary Card */}
                 <Card className={`border-terminal-green/30 bg-card ${
-                  result.severity === 'high' ? 'threat-detected glitch' : 
+                  result.severity === 'critical' ? 'threat-detected glitch' : 
                   result.severity !== 'none' ? 'pulse-glow' : ''
                 }`}>
                   <CardHeader className="pb-3">
