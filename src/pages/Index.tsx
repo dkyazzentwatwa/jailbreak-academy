@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Shield, Zap, BarChart3, AlertTriangle, CheckCircle, Clock, Scan } from "lucide-react";
+import { Shield, Zap, BarChart3, AlertTriangle, CheckCircle, Clock, Scan, Mail, Instagram, ExternalLink } from "lucide-react";
 import { sanitizationEngine } from "@/lib/sanitization-engine";
 import { SanitizationResult } from "@/types/sanitization";
 import { OutputDisplay } from "@/components/OutputDisplay";
@@ -77,6 +77,14 @@ const Index = () => {
     lastScanTime: 0
   };
 
+  const socialLinks = [
+    { name: "Email", icon: Mail, url: "mailto:littlehakr@protonmail.com", label: "littlehakr@protonmail.com" },
+    { name: "Instagram", icon: Instagram, url: "https://www.instagram.com/little_hakr/", label: "@little_hakr" },
+    { name: "TikTok", icon: ExternalLink, url: "https://www.tiktok.com/@littlehakr", label: "@littlehakr" },
+    { name: "LinkTree", icon: ExternalLink, url: "https://linktr.ee/littlehakr", label: "linktr.ee/littlehakr" },
+    { name: "LinkedIn", icon: ExternalLink, url: "https://www.linkedin.com/in/david-kyazze-ntwatwa", label: "David Kyazze Ntwatwa" }
+  ];
+
   return (
     <div className="min-h-screen bg-terminal-bg text-terminal-green font-mono relative terminal-flicker">
       <TerminalEffects />
@@ -108,10 +116,30 @@ const Index = () => {
               v2.0
             </Badge>
           </div>
-          <p className="text-muted-foreground text-sm typewriter">
+          <p className="text-muted-foreground text-sm typewriter mb-4">
             // Advanced threat detection and content sanitization engine
           </p>
-          <div className="mt-4 flex items-center gap-6 text-xs data-stream">
+          
+          {/* Social Media Links */}
+          <div className="mb-4 p-3 rounded border border-terminal-green/20 bg-terminal-bg/50">
+            <div className="text-xs text-terminal-green mb-2 font-mono">// CONNECT_WITH_DEVELOPER:</div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              {socialLinks.map((link, index) => (
+                <a
+                  key={index}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
+                >
+                  <link.icon className="h-3 w-3" />
+                  <span className="font-mono">{link.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 text-xs data-stream">
             <div className="flex items-center gap-2">
               <Scan className="h-4 w-4" />
               <span>Scans: {metrics.totalScans}</span>
