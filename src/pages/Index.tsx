@@ -13,6 +13,7 @@ import { SanitizationResult } from "@/types/sanitization";
 import { OutputDisplay } from "@/components/OutputDisplay";
 import { IssuesList } from "@/components/IssuesList";
 import { SeverityBadge } from "@/components/SeverityBadge";
+import { TerminalEffects } from "@/components/TerminalEffects";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -20,7 +21,13 @@ const Index = () => {
   const [result, setResult] = useState<SanitizationResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [expertMode, setExpertMode] = useState(false);
+  const [showBootAnimation, setShowBootAnimation] = useState(true);
   const sanitizer = new SanitizationEngine();
+
+  // Hide boot animation after 3 seconds
+  useState(() => {
+    setTimeout(() => setShowBootAnimation(false), 3000);
+  });
 
   const handleSanitize = async () => {
     if (!input.trim()) {
@@ -65,21 +72,40 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-terminal-bg text-terminal-green font-mono">
+    <div className="min-h-screen bg-terminal-bg text-terminal-green font-mono relative terminal-flicker">
+      <TerminalEffects />
+      
+      {/* Boot sequence overlay */}
+      {showBootAnimation && (
+        <div className="fixed inset-0 bg-terminal-bg z-50 flex items-center justify-center terminal-boot">
+          <div className="text-center">
+            <div className="text-4xl font-bold text-terminal-green mb-4 pulse-glow">
+              AI_GUARDIAN
+            </div>
+            <div className="typewriter text-lg">
+              Initializing security protocols...
+            </div>
+            <div className="mt-4 flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terminal-green"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="border-b border-terminal-green/30 bg-card">
+      <div className="border-b border-terminal-green/30 bg-card relative z-10">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-3 mb-2">
-            <Shield className="h-8 w-8 text-terminal-green" />
-            <h1 className="text-2xl font-bold text-terminal-green">AI_GUARDIAN</h1>
-            <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50">
+            <Shield className="h-8 w-8 text-terminal-green pulse-glow" />
+            <h1 className="text-2xl font-bold text-terminal-green terminal-green-glow">AI_GUARDIAN</h1>
+            <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow">
               v2.0
             </Badge>
           </div>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm typewriter">
             // Advanced threat detection and content sanitization engine
           </p>
-          <div className="mt-4 flex items-center gap-6 text-xs">
+          <div className="mt-4 flex items-center gap-6 text-xs data-stream">
             <div className="flex items-center gap-2">
               <Scan className="h-4 w-4" />
               <span>Scans: {metrics.totalScans}</span>
@@ -96,14 +122,14 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Input Section */}
           <div className="space-y-4">
-            <Card className="border-terminal-green/30 bg-card">
+            <Card className="border-terminal-green/30 bg-card pulse-glow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2">
+                  <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
                     <Zap className="h-4 w-4" />
                     INPUT_ANALYZER
                   </CardTitle>
@@ -120,17 +146,40 @@ const Index = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Textarea
-                  placeholder="// Enter content to analyze for security threats..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  className="min-h-[300px] font-mono text-sm bg-terminal-bg border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground resize-none"
-                />
+                <div className="relative">
+                  <Textarea
+                    placeholder="// Enter content to analyze for security threats..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="min-h-[300px] font-mono text-sm bg-terminal-bg border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground resize-none data-stream"
+                  />
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-terminal-bg/90 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-terminal-green font-mono text-lg glitch mb-4">
+                          SCANNING FOR THREATS...
+                        </div>
+                        <div className="flex justify-center space-x-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className="w-2 h-2 bg-terminal-green rounded-full animate-pulse"
+                              style={{
+                                animationDelay: `${i * 0.1}s`,
+                                animationDuration: '1s'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <Button 
                     onClick={handleSanitize}
                     disabled={isProcessing || !input.trim()}
-                    className="font-mono bg-terminal-green text-terminal-bg hover:bg-terminal-green/80"
+                    className="font-mono bg-terminal-green text-terminal-bg hover:bg-terminal-green/80 pulse-glow"
                   >
                     {isProcessing ? (
                       <>
@@ -145,7 +194,7 @@ const Index = () => {
                     )}
                   </Button>
                   {input.length > 0 && (
-                    <Badge variant="outline" className="font-mono text-xs">
+                    <Badge variant="outline" className="font-mono text-xs animate-pulse">
                       {input.length.toLocaleString()} chars
                     </Badge>
                   )}
@@ -156,15 +205,15 @@ const Index = () => {
             {/* Security Metrics */}
             <Card className="border-terminal-green/30 bg-card">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2">
+                <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
                   <BarChart3 className="h-4 w-4" />
                   SECURITY_METRICS
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="space-y-1">
-                    <div className="text-2xl font-bold font-mono text-terminal-green">
+                  <div className="space-y-1 data-stream">
+                    <div className="text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
                       {metrics.totalScans}
                     </div>
                     <div className="text-xs text-muted-foreground font-mono">
@@ -172,7 +221,7 @@ const Index = () => {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-2xl font-bold font-mono text-red-400">
+                    <div className="text-2xl font-bold font-mono text-red-400 glitch">
                       {metrics.threatsBlocked}
                     </div>
                     <div className="text-xs text-muted-foreground font-mono">
@@ -197,10 +246,13 @@ const Index = () => {
             {result && (
               <>
                 {/* Summary Card */}
-                <Card className="border-terminal-green/30 bg-card">
+                <Card className={`border-terminal-green/30 bg-card ${
+                  result.severity === 'high' ? 'threat-detected glitch' : 
+                  result.severity !== 'none' ? 'pulse-glow' : ''
+                }`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2">
+                      <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
                         <CheckCircle className="h-4 w-4" />
                         SCAN_SUMMARY
                       </CardTitle>
@@ -210,7 +262,9 @@ const Index = () => {
                   <CardContent className="space-y-3">
                     <div className="flex justify-between text-xs font-mono">
                       <span className="text-muted-foreground">ISSUES_DETECTED:</span>
-                      <span className="text-terminal-green">{result.issues.length}</span>
+                      <span className={`text-terminal-green ${result.issues.length > 0 ? 'glitch' : ''}`}>
+                        {result.issues.length}
+                      </span>
                     </div>
                     <div className="flex justify-between text-xs font-mono">
                       <span className="text-muted-foreground">PROCESSING_TIME:</span>
@@ -218,12 +272,12 @@ const Index = () => {
                     </div>
                     <div className="flex justify-between text-xs font-mono">
                       <span className="text-muted-foreground">STATUS:</span>
-                      <span className={result.severity === 'none' ? 'text-terminal-green' : 'text-red-400'}>
+                      <span className={result.severity === 'none' ? 'text-terminal-green' : 'text-red-400 glitch'}>
                         {result.severity === 'none' ? 'SAFE' : 'THREATS_FOUND'}
                       </span>
                     </div>
                     {result.guidance && (
-                      <div className="mt-3 p-3 rounded border border-terminal-green/20 bg-terminal-bg">
+                      <div className="mt-3 p-3 rounded border border-terminal-green/20 bg-terminal-bg data-stream">
                         <p className="text-xs font-mono text-muted-foreground">
                           {result.guidance}
                         </p>
@@ -241,7 +295,7 @@ const Index = () => {
                     <TabsTrigger value="issues" className="font-mono text-xs">
                       THREAT_ANALYSIS
                       {result.issues.length > 0 && (
-                        <Badge variant="outline" className="ml-2 bg-red-900/50 text-red-200 border-red-500/50">
+                        <Badge variant="outline" className="ml-2 bg-red-900/50 text-red-200 border-red-500/50 glitch">
                           {result.issues.length}
                         </Badge>
                       )}
@@ -263,10 +317,10 @@ const Index = () => {
             )}
 
             {!result && (
-              <Card className="border-terminal-green/30 bg-card">
+              <Card className="border-terminal-green/30 bg-card pulse-glow">
                 <CardContent className="p-8 text-center">
-                  <Shield className="h-12 w-12 mx-auto mb-4 text-terminal-green/50" />
-                  <p className="text-muted-foreground font-mono text-sm">
+                  <Shield className="h-12 w-12 mx-auto mb-4 text-terminal-green/50 pulse-glow" />
+                  <p className="text-muted-foreground font-mono text-sm typewriter">
                     // Ready to analyze content for security threats
                   </p>
                   <p className="text-muted-foreground font-mono text-xs mt-2">

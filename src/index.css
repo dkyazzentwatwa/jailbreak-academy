@@ -86,6 +86,7 @@
   body {
     @apply bg-background text-foreground font-mono;
     font-family: 'Roboto Mono', monospace;
+    overflow-x: hidden;
   }
 
   /* Terminal-specific styles */
@@ -142,8 +143,17 @@
 }
 
 @keyframes scan-line {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
+  0% { 
+    transform: translateY(-100%); 
+    opacity: 0.8;
+  }
+  50% { 
+    opacity: 1;
+  }
+  100% { 
+    transform: translateY(100vh); 
+    opacity: 0.8;
+  }
 }
 
 .scan-line {
@@ -153,7 +163,177 @@
   right: 0;
   height: 2px;
   background: linear-gradient(90deg, transparent, hsl(var(--terminal-green)), transparent);
-  animation: scan-line 3s linear infinite;
+  animation: scan-line 4s linear infinite;
   pointer-events: none;
   z-index: 1000;
+  box-shadow: 0 0 10px hsl(var(--terminal-green));
+}
+
+@keyframes matrix-rain {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+.matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.matrix-char {
+  position: absolute;
+  color: hsl(var(--terminal-green));
+  font-family: 'Roboto Mono', monospace;
+  font-size: 14px;
+  animation: matrix-rain linear infinite;
+  opacity: 0.3;
+}
+
+@keyframes typing {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+.typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid hsl(var(--terminal-green));
+  animation: typing 2s steps(40, end), blink-caret 0.75s step-end infinite;
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent; }
+  50% { border-color: hsl(var(--terminal-green)); }
+}
+
+@keyframes glitch {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-2px); }
+  20% { transform: translateX(2px); }
+  30% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  50% { transform: translateX(0); }
+  60% { transform: translateX(-2px); }
+  70% { transform: translateX(2px); }
+  80% { transform: translateX(0); }
+  90% { transform: translateX(-2px); }
+}
+
+.glitch {
+  animation: glitch 0.3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px hsl(var(--terminal-green) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px hsl(var(--terminal-green) / 0.6), 0 0 30px hsl(var(--terminal-green) / 0.4);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes terminal-boot {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.terminal-boot {
+  animation: terminal-boot 1s ease-out forwards;
+}
+
+@keyframes scan-threat {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.threat-detected {
+  background: linear-gradient(45deg, 
+    hsl(0 84% 60% / 0.1), 
+    hsl(var(--terminal-green) / 0.1), 
+    hsl(0 84% 60% / 0.1)
+  );
+  background-size: 200% 200%;
+  animation: scan-threat 1s ease-in-out infinite;
+  border: 1px solid hsl(0 84% 60% / 0.5);
+}
+
+@keyframes data-stream {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.data-stream {
+  position: relative;
+  overflow: hidden;
+}
+
+.data-stream::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    transparent, 
+    hsl(var(--terminal-green) / 0.2), 
+    transparent
+  );
+  animation: data-stream 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes terminal-flicker {
+  0%, 100% { opacity: 1; }
+  98% { opacity: 1; }
+  99% { opacity: 0.98; }
+  99.5% { opacity: 1; }
+}
+
+.terminal-flicker {
+  animation: terminal-flicker 0.15s ease-in-out infinite;
 }
