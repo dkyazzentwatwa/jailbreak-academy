@@ -249,7 +249,10 @@ const Index = () => {
                   </TabsList>
                   
                   <TabsContent value="output" className="mt-4">
-                    <OutputDisplay result={result} />
+                    <div className="space-y-4">
+                      <OutputDisplay content={input} type="original" />
+                      <OutputDisplay content={result.sanitizedContent} type="sanitized" />
+                    </div>
                   </TabsContent>
                   
                   <TabsContent value="issues" className="mt-4">
