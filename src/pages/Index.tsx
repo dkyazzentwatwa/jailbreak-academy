@@ -305,7 +305,7 @@ const Index = () => {
                   <TabsContent value="output" className="mt-4">
                     <div className="space-y-4">
                       <OutputDisplay content={input} type="original" />
-                      <OutputDisplay content={result.sanitizedContent} type="sanitized" />
+                      <OutputDisplay content={result.sanitizedOutput} type="sanitized" />
                     </div>
                   </TabsContent>
                   
