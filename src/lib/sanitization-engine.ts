@@ -76,6 +76,30 @@ export class SanitizationEngine {
       description: 'SQL DELETE statements that can remove data',
       recommendation: 'SQL delete statements have been flagged'
     },
+    {
+      name: 'SQL Injection - Insert',
+      regex: /\binsert\s+into\b/gi,
+      severity: 'moderate',
+      type: 'sql_injection',
+      description: 'SQL INSERT statements that can add malicious data',
+      recommendation: 'SQL insert statements have been neutralized'
+    },
+    {
+      name: 'SQL Injection - Update',
+      regex: /\bupdate\s+\w+\s+set\b/gi,
+      severity: 'moderate',
+      type: 'sql_injection',
+      description: 'SQL UPDATE statements that can modify data',
+      recommendation: 'SQL update statements have been neutralized'
+    },
+    {
+      name: 'SQL Comments',
+      regex: /(--[^\r\n]*|\/\*[\s\S]*?\*\/)/g,
+      severity: 'moderate',
+      type: 'sql_injection',
+      description: 'SQL comments that can be used to bypass filters',
+      recommendation: 'SQL comments have been removed'
+    },
     
     // Command Injection Patterns
     {
@@ -294,36 +318,133 @@ export class SanitizationEngine {
 
   private applyEnterpriseSanitization(text: string, issues: SecurityIssue[]): string {
     let sanitized = text;
+    console.log('Applying enterprise sanitization to threats...');
 
     try {
-      // Remove script tags completely
+      // SQL Injection Sanitization - CRITICAL
+      console.log('Neutralizing SQL injection threats...');
+      
+      // Remove SQL UNION attacks
+      sanitized = sanitized.replace(/\bunion\s+(?:all\s+)?select\b/gi, '[SQL_UNION_BLOCKED]');
+      
+      // Remove dangerous SQL commands
+      sanitized = sanitized.replace(/\bdrop\s+(?:table|database|schema|index)\b/gi, '[SQL_DROP_BLOCKED]');
+      sanitized = sanitized.replace(/\bdelete\s+from\b/gi, '[SQL_DELETE_BLOCKED]');
+      sanitized = sanitized.replace(/\binsert\s+into\b/gi, '[SQL_INSERT_BLOCKED]');
+      sanitized = sanitized.replace(/\bupdate\s+\w+\s+set\b/gi, '[SQL_UPDATE_BLOCKED]');
+      
+      // Remove SQL comments that can bypass filters
+      sanitized = sanitized.replace(/(--[^\r\n]*)/g, '[SQL_COMMENT_REMOVED]');
+      sanitized = sanitized.replace(/(\/\*[\s\S]*?\*\/)/g, '[SQL_COMMENT_REMOVED]');
+      
+      // Remove other dangerous SQL keywords
+      sanitized = sanitized.replace(/\b(exec|execute|sp_|xp_)\b/gi, '[SQL_EXEC_BLOCKED]');
+      sanitized = sanitized.replace(/\b(information_schema|sys\.)\b/gi, '[SQL_SCHEMA_BLOCKED]');
+      
+      // XSS Sanitization - CRITICAL
+      console.log('Neutralizing XSS threats...');
+      
+      // Remove all script tags completely
       sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '[SCRIPT_REMOVED]');
+      sanitized = sanitized.replace(/<script[^>]*>/gi, '[SCRIPT_TAG_REMOVED]');
       
-      // Remove event handlers
+      // Remove all event handlers
       sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+      sanitized = sanitized.replace(/\son\w+\s*=\s*[^"\s>]*/gi, '');
       
-      // Neutralize javascript URLs
+      // Neutralize all javascript URLs
       sanitized = sanitized.replace(/javascript\s*:\s*[^"\s;]*/gi, '[JS_URL_REMOVED]');
       
-      // Remove iframes
+      // Remove dangerous HTML elements
       sanitized = sanitized.replace(/<iframe[^>]*>.*?<\/iframe>/gi, '[IFRAME_REMOVED]');
-      
-      // Remove object/embed tags
       sanitized = sanitized.replace(/<(object|embed)[^>]*>.*?<\/\1>/gi, '[EXTERNAL_CONTENT_REMOVED]');
+      sanitized = sanitized.replace(/<(applet|meta)[^>]*>/gi, '[DANGEROUS_TAG_REMOVED]');
       
-      // Redact sensitive data
+      // Remove data URLs and base64 content
+      sanitized = sanitized.replace(/data:[^"'\s>]+/gi, '[DATA_URL_REMOVED]');
+      
+      // Command Injection Sanitization - HIGH PRIORITY
+      console.log('Neutralizing command injection threats...');
+      
+      // Escape or remove shell metacharacters
+      sanitized = sanitized.replace(/[;&|`]/g, '[SHELL_CHAR_BLOCKED]');
+      sanitized = sanitized.replace(/\$\([^)]*\)/g, '[COMMAND_SUBSTITUTION_BLOCKED]');
+      sanitized = sanitized.replace(/\${[^}]*}/g, '[VARIABLE_EXPANSION_BLOCKED]');
+      
+      // Data Exposure Protection - PRIVACY CRITICAL
+      console.log('Redacting sensitive data...');
+      
+      // Redact email addresses
       sanitized = sanitized.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
+      
+      // Redact credit card numbers
       sanitized = sanitized.replace(/\b(?:\d{4}[-\s]?){3}\d{4}\b/g, '[CARD_NUMBER_REDACTED]');
+      
+      // Redact phone numbers
       sanitized = sanitized.replace(/\b(?:\+?1[-.\s]?)?\(?[2-9]\d{2}\)?[-.\s]?[2-9]\d{2}[-.\s]?\d{4}\b/g, '[PHONE_REDACTED]');
       
-      // Escape shell metacharacters
-      sanitized = sanitized.replace(/[;&|`$(){}[\]\\]/g, (match) => `\\${match}`);
+      // Additional Enterprise Security Measures
+      console.log('Applying additional enterprise security...');
+      
+      // Remove potential SQL injection operators
+      sanitized = sanitized.replace(/\b(and|or)\s+1\s*=\s*1\b/gi, '[SQL_LOGIC_BLOCKED]');
+      sanitized = sanitized.replace(/'\s*(or|and)\s*'[^']*'\s*=\s*'/gi, '[SQL_CONDITION_BLOCKED]');
+      
+      // Remove HTML form elements that could be dangerous
+      sanitized = sanitized.replace(/<(form|input|textarea|select)[^>]*>/gi, '[FORM_ELEMENT_REMOVED]');
+      
+      // Remove potentially dangerous CSS
+      sanitized = sanitized.replace(/expression\s*\([^)]*\)/gi, '[CSS_EXPRESSION_REMOVED]');
+      sanitized = sanitized.replace(/url\s*\(\s*javascript:/gi, '[CSS_JS_URL_REMOVED]');
+      
+      // Final validation - ensure no bypasses
+      if (this.containsDangerous(sanitized)) {
+        console.warn('Potential bypass detected, applying fallback sanitization');
+        sanitized = this.applyFallbackSanitization(sanitized);
+      }
+      
+      console.log('Enterprise sanitization completed successfully');
       
     } catch (error) {
-      console.warn('Enterprise sanitization replacement error:', error);
+      console.warn('Enterprise sanitization error, applying fallback:', error);
+      sanitized = this.applyFallbackSanitization(sanitized);
     }
 
     return sanitized;
+  }
+
+  private containsDangerous(text: string): boolean {
+    const dangerousPatterns = [
+      /<script/i,
+      /javascript:/i,
+      /\bunion\s+select/i,
+      /\bdrop\s+table/i,
+      /\bdelete\s+from/i,
+      /on\w+\s*=/i
+    ];
+    
+    return dangerousPatterns.some(pattern => pattern.test(text));
+  }
+
+  private applyFallbackSanitization(text: string): string {
+    console.log('Applying fallback sanitization...');
+    
+    // Ultra-conservative fallback - remove anything that looks dangerous
+    let fallback = text;
+    
+    // Remove all HTML tags
+    fallback = fallback.replace(/<[^>]*>/g, '[HTML_TAG_REMOVED]');
+    
+    // Remove all SQL keywords
+    fallback = fallback.replace(/\b(select|insert|update|delete|drop|union|exec|execute)\b/gi, '[SQL_KEYWORD_BLOCKED]');
+    
+    // Remove all shell characters
+    fallback = fallback.replace(/[;&|`$(){}[\]\\]/g, '[SPECIAL_CHAR_BLOCKED]');
+    
+    // Remove quotes to prevent injection
+    fallback = fallback.replace(/['"]/g, '[QUOTE_REMOVED]');
+    
+    return fallback + '\n\n[WARNING: Fallback sanitization applied due to potential bypass attempt]';
   }
 
   private calculateOverallSeverity(issues: SecurityIssue[]): SeverityLevel {
