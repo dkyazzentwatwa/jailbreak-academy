@@ -235,7 +235,7 @@ export class SanitizationEngine {
     this.securityMonitor = new SecurityMonitor();
   }
 
-  sanitize(input: string): SanitizationResult {
+  async sanitize(input: string): Promise<SanitizationResult> {
     const startTime = Date.now();
     const issues: SecurityIssue[] = [];
     let sanitizedOutput = input;
