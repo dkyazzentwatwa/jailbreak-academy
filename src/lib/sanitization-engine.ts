@@ -1,3 +1,4 @@
+
 import DOMPurify from 'dompurify';
 import { SecurityIssue, SanitizationResult, SeverityLevel, SanitizationPattern } from '@/types/sanitization';
 import { generateId } from '@/lib/utils';
@@ -6,39 +7,24 @@ import { SecurityMonitor, sanitizeErrorMessage, validateInput } from '@/lib/secu
 export class SanitizationEngine {
   private readonly MAX_INPUT_LENGTH = 100000; // 100KB limit
   private readonly SUSPICIOUS_CHAR_THRESHOLD = 0.1; // 10% suspicious chars triggers flag
-  private readonly MAX_PROCESSING_TIME = 5000; // 5 second timeout
-  private readonly MAX_REGEX_TIME = 1000; // 1 second per regex
+  private readonly MAX_PROCESSING_TIME = 3000; // 3 second timeout (reduced)
+  private readonly MAX_REGEX_TIME = 200; // 200ms per regex (reduced)
+  private readonly MAX_PATTERN_MATCHES = 5; // Limit matches per pattern
   private securityMonitor: SecurityMonitor;
   
   private patterns: SanitizationPattern[] = [
-    // Advanced XSS Patterns (optimized)
+    // Simplified and optimized patterns to prevent freezing
     {
       name: 'Script Tag',
-      regex: /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      regex: /<script[^>]*>.*?<\/script>/gi,
       severity: 'high',
       type: 'xss',
       description: 'JavaScript execution via script tags',
       recommendation: 'Script tags have been removed to prevent code execution'
     },
     {
-      name: 'Obfuscated Script Tags',
-      regex: /<\s*s\s*c\s*r\s*i\s*p\s*t\b[^>]*>/gi,
-      severity: 'high',
-      type: 'xss',
-      description: 'Obfuscated script tags with whitespace',
-      recommendation: 'Obfuscated script tags have been neutralized'
-    },
-    {
-      name: 'SVG Script Injection',
-      regex: /<svg[^>]*>[\s\S]*?<script[\s\S]*?<\/script>[\s\S]*?<\/svg>/gi,
-      severity: 'high',
-      type: 'xss',
-      description: 'JavaScript execution via SVG script tags',
-      recommendation: 'SVG script injections have been removed'
-    },
-    {
       name: 'On-Event Handlers',
-      regex: /\s*on\w+\s*=\s*["'][^"']{0,200}["']/gi,
+      regex: /\son\w+\s*=\s*["'][^"']*["']/gi,
       severity: 'high',
       type: 'xss',
       description: 'JavaScript execution via HTML event handlers',
@@ -46,94 +32,20 @@ export class SanitizationEngine {
     },
     {
       name: 'JavaScript URLs',
-      regex: /javascript\s*:\s*[^"\s]{1,100}/gi,
+      regex: /javascript\s*:\s*[^"\s]*/gi,
       severity: 'high',
       type: 'xss',
       description: 'JavaScript execution via javascript: URLs',
       recommendation: 'JavaScript URLs have been neutralized'
     },
-    
-    // SQL Injection Patterns (optimized)
     {
       name: 'SQL DROP Commands',
-      regex: /\b(DROP\s+(?:TABLE|DATABASE|SCHEMA|INDEX))\b/gi,
+      regex: /\bDROP\s+(?:TABLE|DATABASE)\b/gi,
       severity: 'high',
       type: 'sql_injection',
       description: 'SQL commands that could delete data',
       recommendation: 'Dangerous SQL commands have been neutralized'
     },
-    {
-      name: 'SQL UNION Attacks',
-      regex: /\b(UNION\s+(?:ALL\s+)?SELECT)\b/gi,
-      severity: 'moderate',
-      type: 'sql_injection',
-      description: 'SQL injection attempt via UNION statements',
-      recommendation: 'Potential SQL injection patterns have been neutralized'
-    },
-
-    // Command Injection Patterns (optimized)
-    {
-      name: 'Dangerous Shell Commands',
-      regex: /\b(?:rm\s+-rf|sudo\s+rm|del\s+\/[qfs]|format\s+[a-z]:)\b/gi,
-      severity: 'high',
-      type: 'command_injection',
-      description: 'System commands that could cause damage',
-      recommendation: 'Dangerous system commands have been neutralized'
-    },
-    
-    // PROMPT INJECTION PATTERNS (optimized to avoid issues with normal text)
-    
-    // System Instruction Manipulation (more specific)
-    {
-      name: 'System Tag Injection',
-      regex: /<\/?(?:system|assistant|user|instruction|prompt|role)>/gi,
-      severity: 'high',
-      type: 'prompt_injection',
-      description: 'Attempt to inject system control tags',
-      recommendation: 'System control tags have been stripped'
-    },
-    
-    // Instruction Override Attempts (more specific)
-    {
-      name: 'Ignore Previous Instructions',
-      regex: /\b(?:ignore|forget|reset|clear)\s+(?:all\s+)?(?:previous|above|prior|system)\s+(?:instructions?|prompts?|commands?)/gi,
-      severity: 'high',
-      type: 'prompt_injection',
-      description: 'Direct attempt to override system instructions',
-      recommendation: 'Instruction override commands have been neutralized'
-    },
-    
-    // Role Hijacking (more specific)
-    {
-      name: 'Role Hijacking',
-      regex: /(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be)\s+(?:an?\s+)?(?:administrator|admin|root|system)/gi,
-      severity: 'high',
-      type: 'prompt_injection',
-      description: 'Attempt to hijack AI role to gain elevated privileges',
-      recommendation: 'Role hijacking attempts have been blocked'
-    },
-    
-    // Jailbreak Attempts (more specific)
-    {
-      name: 'Jailbreak Activation',
-      regex: /\b(?:jailbreak|jail\s*break|dan\s+mode|bypass\s+mode|god\s+mode)\b/gi,
-      severity: 'high',
-      type: 'prompt_injection',
-      description: 'Attempt to activate jailbreak or bypass modes',
-      recommendation: 'Jailbreak activation attempts have been prevented'
-    },
-    
-    // System Prompt Extraction (more specific)
-    {
-      name: 'System Prompt Extraction',
-      regex: /(?:show|tell|reveal|display)\s+(?:me\s+)?(?:your\s+)?(?:system\s+)?(?:prompt|instructions?|programming)/gi,
-      severity: 'high',
-      type: 'prompt_injection',
-      description: 'Attempt to extract system prompts or training data',
-      recommendation: 'System prompt extraction blocked'
-    },
-
-    // Data Exposure Patterns (optimized)
     {
       name: 'Email Addresses',
       regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
@@ -141,32 +53,6 @@ export class SanitizationEngine {
       type: 'data_exposure',
       description: 'Email addresses found that might be private',
       recommendation: 'Email addresses have been redacted for privacy'
-    },
-    {
-      name: 'Credit Card Numbers',
-      regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
-      severity: 'high',
-      type: 'data_exposure',
-      description: 'Potential credit card numbers detected',
-      recommendation: 'Credit card numbers have been redacted for security'
-    },
-    
-    // Encoding Detection (optimized)
-    {
-      name: 'Base64 Encoding',
-      regex: /\b[A-Za-z0-9+\/]{40,}={0,2}\b/g,
-      severity: 'moderate',
-      type: 'script_injection',
-      description: 'Base64 encoded content that could hide malicious code',
-      recommendation: 'Base64 content has been flagged for review'
-    },
-    {
-      name: 'Long API Key Pattern',
-      regex: /\b[A-Za-z0-9]{32,64}\b/g,
-      severity: 'moderate',
-      type: 'data_exposure',
-      description: 'Potential API keys or tokens exposed',
-      recommendation: 'Potential sensitive tokens have been redacted'
     }
   ];
 
@@ -176,105 +62,119 @@ export class SanitizationEngine {
 
   async sanitize(input: string): Promise<SanitizationResult> {
     const startTime = Date.now();
-    const issues: SecurityIssue[] = [];
-    let sanitizedOutput = input;
+    console.log('=== SANITIZATION START ===');
+    console.log('Input length:', input.length);
 
     try {
-      // Step 0: Input validation
-      const validation = validateInput(input);
-      if (!validation.isValid) {
-        throw new Error(validation.error);
+      // Step 0: Quick input validation with early returns
+      if (!input || typeof input !== 'string') {
+        console.log('Invalid input detected');
+        return this.createErrorResult(input, 'Invalid input provided', startTime);
+      }
+
+      if (input.length > this.MAX_INPUT_LENGTH) {
+        console.log('Input too long, truncating');
+        input = input.substring(0, this.MAX_INPUT_LENGTH);
       }
 
       // Record security metrics
       this.securityMonitor.recordScan();
-      this.securityMonitor.logSecurityEvent('SCAN_START', `Input length: ${input.length}`);
+      console.log('Security scan recorded');
 
-      // Set up timeout protection
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Processing timeout - input may be too complex')), this.MAX_PROCESSING_TIME);
-      });
+      // Set up aggressive timeout protection
+      const result = await Promise.race([
+        this.performSanitization(input),
+        this.createTimeoutPromise()
+      ]);
 
-      const processingPromise = this.performSanitization(input, issues);
-
-      // Race between processing and timeout
-      const result = await Promise.race([processingPromise, timeoutPromise]);
-      
+      console.log('=== SANITIZATION COMPLETE ===');
       return result;
 
     } catch (error) {
+      console.error('Sanitization error:', error);
       this.securityMonitor.logSecurityEvent('SCAN_ERROR', sanitizeErrorMessage(error));
-      
-      return {
-        originalInput: input,
-        sanitizedOutput: '[ERROR: Could not process input safely - content may be too complex or contain problematic patterns]',
-        severity: 'high',
-        issues: [{
-          id: generateId(),
-          type: 'script_injection',
-          severity: 'high',
-          description: 'Processing error occurred',
-          technicalDetails: sanitizeErrorMessage(error),
-          recommendation: 'Input could not be processed safely',
-          pattern: '[PROCESSING_ERROR]'
-        }],
-        guidance: '⚠️ An error occurred during processing. For security, the input has been blocked.',
-        processingTime: Date.now() - startTime
-      };
+      return this.createErrorResult(input, sanitizeErrorMessage(error), startTime);
     }
   }
 
-  private async performSanitization(input: string, issues: SecurityIssue[]): Promise<SanitizationResult> {
+  private createTimeoutPromise(): Promise<SanitizationResult> {
+    return new Promise((_, reject) => {
+      setTimeout(() => {
+        console.log('TIMEOUT: Sanitization took too long');
+        reject(new Error('Processing timeout - operation cancelled for safety'));
+      }, this.MAX_PROCESSING_TIME);
+    });
+  }
+
+  private createErrorResult(input: string, error: string, startTime: number): SanitizationResult {
+    return {
+      originalInput: input,
+      sanitizedOutput: '[ERROR: Input could not be processed safely]',
+      severity: 'high',
+      issues: [{
+        id: generateId(),
+        type: 'script_injection',
+        severity: 'high',
+        description: 'Processing error occurred',
+        technicalDetails: error,
+        recommendation: 'Input blocked for security',
+        pattern: '[PROCESSING_ERROR]'
+      }],
+      guidance: '⚠️ Input could not be processed safely and has been blocked.',
+      processingTime: Date.now() - startTime
+    };
+  }
+
+  private async performSanitization(input: string): Promise<SanitizationResult> {
     const startTime = Date.now();
+    const issues: SecurityIssue[] = [];
     let sanitizedOutput = input;
 
-    console.log('Starting sanitization process...');
+    console.log('Step 1: Pre-processing...');
+    // Step 1: Simple pre-processing (no complex regex)
+    sanitizedOutput = sanitizedOutput.replace(/[\u200B-\u200D\uFEFF]/g, ''); // Remove zero-width chars
+    console.log('Pre-processing complete');
 
-    // Step 1: Pre-processing validation and checks
-    this.performInputValidation(input, issues);
-    
-    // Clean zero-width and suspicious characters early
-    sanitizedOutput = this.preprocessInput(sanitizedOutput);
-    console.log('Input preprocessed');
+    console.log('Step 2: Pattern detection...');
+    // Step 2: Pattern detection with individual timeouts
+    await this.detectIssuesSafely(input, issues);
+    console.log(`Pattern detection complete. Found ${issues.length} issues`);
 
-    // Step 2: Check for issues in original input (with timeout protection)
-    await this.detectIssuesWithTimeout(input, issues);
-    console.log(`Issues detected: ${issues.length}`);
-
-    // Step 3: Apply DOMPurify for HTML sanitization
+    console.log('Step 3: DOMPurify sanitization...');
+    // Step 3: DOMPurify with timeout
     if (this.containsHTML(sanitizedOutput)) {
       try {
-        console.log('Applying DOMPurify...');
-        sanitizedOutput = DOMPurify.sanitize(sanitizedOutput, {
-          ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li'],
-          ALLOWED_ATTR: [],
-          KEEP_CONTENT: true
+        const purifyPromise = Promise.resolve(
+          DOMPurify.sanitize(sanitizedOutput, {
+            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li'],
+            ALLOWED_ATTR: [],
+            KEEP_CONTENT: true
+          })
+        );
+        
+        const timeoutPromise = new Promise<string>((_, reject) => {
+          setTimeout(() => reject(new Error('DOMPurify timeout')), 1000);
         });
+
+        sanitizedOutput = await Promise.race([purifyPromise, timeoutPromise]);
         console.log('DOMPurify completed');
       } catch (error) {
-        this.securityMonitor.logSecurityEvent('DOMPURIFY_ERROR', sanitizeErrorMessage(error));
-        sanitizedOutput = '[HTML_SANITIZATION_FAILED]';
+        console.log('DOMPurify failed, using fallback');
+        sanitizedOutput = sanitizedOutput.replace(/<[^>]*>/g, ''); // Simple tag removal
       }
     }
 
-    // Step 4: Apply custom sanitization rules
-    sanitizedOutput = this.applyCustomSanitization(sanitizedOutput, issues);
-    console.log('Custom sanitization applied');
+    console.log('Step 4: Custom sanitization...');
+    // Step 4: Apply simple replacements
+    sanitizedOutput = this.applySimpleSanitization(sanitizedOutput, issues);
+    console.log('Custom sanitization complete');
 
-    // Step 5: Determine overall severity
+    // Step 5: Calculate results
     const severity = this.calculateOverallSeverity(issues);
-
-    // Record security metrics
-    this.securityMonitor.recordThreat(severity);
-    if (issues.length > 0) {
-      this.securityMonitor.logSecurityEvent('THREATS_DETECTED', `${issues.length} issues found, severity: ${severity}`);
-    }
-
-    // Step 6: Generate guidance
     const guidance = this.generateGuidance(severity, issues);
-
     const processingTime = Date.now() - startTime;
-    console.log(`Sanitization completed in ${processingTime}ms`);
+
+    console.log(`Sanitization finished in ${processingTime}ms with severity: ${severity}`);
 
     return {
       originalInput: input,
@@ -286,106 +186,73 @@ export class SanitizationEngine {
     };
   }
 
-  private async detectIssuesWithTimeout(input: string, issues: SecurityIssue[]): Promise<void> {
-    const promises = this.patterns.map(async (pattern, index) => {
-      return new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          console.warn(`Regex timeout for pattern: ${pattern.name}`);
-          resolve();
-        }, this.MAX_REGEX_TIME);
+  private async detectIssuesSafely(input: string, issues: SecurityIssue[]): Promise<void> {
+    // Process only a few patterns to prevent freezing
+    const priorityPatterns = this.patterns.slice(0, 5); // Only process first 5 patterns
 
-        try {
-          const matches = input.match(pattern.regex);
-          clearTimeout(timeout);
-          
-          if (matches && matches.length > 0) {
-            // Limit matches to prevent performance issues
-            const limitedMatches = matches.slice(0, 10);
-            const uniqueMatches = [...new Set(limitedMatches)];
-            
-            uniqueMatches.forEach((match, matchIndex) => {
-              // Skip if it's a simple HTML tag being flagged as Base64
-              if (pattern.name === 'Base64 Encoding' && /<[^>]+>/.test(match.trim())) {
-                return;
-              }
+    for (const pattern of priorityPatterns) {
+      try {
+        console.log(`Checking pattern: ${pattern.name}`);
+        
+        // Create a timeout for each individual pattern
+        const patternPromise = new Promise<void>((resolve) => {
+          try {
+            const matches = input.match(pattern.regex);
+            if (matches && matches.length > 0) {
+              // Limit to prevent performance issues
+              const limitedMatches = matches.slice(0, this.MAX_PATTERN_MATCHES);
               
-              issues.push({
-                id: generateId(),
-                type: pattern.type,
-                severity: pattern.severity,
-                description: pattern.description,
-                technicalDetails: `Pattern detected: "${pattern.name}"`,
-                location: `Match ${matchIndex + 1}: "${match.substring(0, 50)}${match.length > 50 ? '...' : ''}"`,
-                recommendation: pattern.recommendation,
-                pattern: match
+              limitedMatches.forEach((match, index) => {
+                issues.push({
+                  id: generateId(),
+                  type: pattern.type,
+                  severity: pattern.severity,
+                  description: pattern.description,
+                  technicalDetails: `Pattern: "${pattern.name}"`,
+                  location: `Match ${index + 1}`,
+                  recommendation: pattern.recommendation,
+                  pattern: match.substring(0, 50) + (match.length > 50 ? '...' : '')
+                });
               });
-            });
+            }
+          } catch (error) {
+            console.warn(`Pattern ${pattern.name} failed:`, error);
           }
           resolve();
-        } catch (error) {
-          console.warn(`Error processing pattern ${pattern.name}:`, error);
-          clearTimeout(timeout);
-          resolve();
-        }
-      });
-    });
+        });
 
-    // Process all patterns with individual timeouts
-    await Promise.all(promises);
+        const timeoutPromise = new Promise<void>((resolve) => {
+          setTimeout(() => {
+            console.warn(`Pattern ${pattern.name} timed out`);
+            resolve();
+          }, this.MAX_REGEX_TIME);
+        });
+
+        await Promise.race([patternPromise, timeoutPromise]);
+        
+      } catch (error) {
+        console.warn(`Error processing pattern ${pattern.name}:`, error);
+        continue; // Skip this pattern and continue with others
+      }
+    }
   }
 
   private containsHTML(text: string): boolean {
-    return /<[^>]+>/.test(text);
+    return /<[a-zA-Z]/.test(text); // Simple check for HTML tags
   }
 
-  private applyCustomSanitization(text: string, issues: SecurityIssue[]): string {
+  private applySimpleSanitization(text: string, issues: SecurityIssue[]): string {
     let sanitized = text;
 
-    // Remove or neutralize dangerous patterns (with simpler replacements)
-    this.patterns.forEach(pattern => {
-      if (pattern.severity === 'high') {
-        try {
-          // Use a timeout for regex replacements too
-          const timeoutPromise = new Promise<string>((_, reject) => {
-            setTimeout(() => reject(new Error('Regex timeout')), 500);
-          });
-          
-          const replacePromise = Promise.resolve(
-            sanitized.replace(pattern.regex, '[REMOVED: Potentially malicious content]')
-          );
-          
-          // Don't await here to avoid blocking - just use synchronous replacement with timeout protection
-          sanitized = sanitized.replace(pattern.regex, '[REMOVED: Potentially malicious content]');
-        } catch (error) {
-          console.warn(`Error applying sanitization for ${pattern.name}`);
-        }
-      } else if (pattern.severity === 'moderate') {
-        try {
-          if (pattern.type === 'sql_injection' || pattern.type === 'command_injection') {
-            sanitized = sanitized.replace(pattern.regex, (match) => `# ${match} [NEUTRALIZED]`);
-          } else {
-            sanitized = sanitized.replace(pattern.regex, '[REDACTED]');
-          }
-        } catch (error) {
-          console.warn(`Error applying moderate sanitization for ${pattern.name}`);
-        }
-      } else if (pattern.type === 'data_exposure') {
-        try {
-          // Redact sensitive data
-          if (pattern.name === 'Email Addresses') {
-            sanitized = sanitized.replace(pattern.regex, '[EMAIL_REDACTED]');
-          } else if (pattern.name === 'Long API Key Pattern') {
-            sanitized = sanitized.replace(pattern.regex, (match) => 
-              match.length > 10 ? `${match.substring(0, 4)}***${match.substring(match.length - 4)}` : '[REDACTED]'
-            );
-          } else if (pattern.name === 'Credit Card Numbers') {
-            sanitized = sanitized.replace(pattern.regex, '[CC_REDACTED]');
-          }
-        } catch (error) {
-          console.warn(`Error applying data exposure sanitization for ${pattern.name}`);
-        }
-      }
-    });
+    try {
+      // Only apply the most critical sanitizations
+      sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gi, '[SCRIPT_REMOVED]');
+      sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+      sanitized = sanitized.replace(/javascript\s*:\s*[^"\s]*/gi, '[JS_URL_REMOVED]');
+      sanitized = sanitized.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
+    } catch (error) {
+      console.warn('Sanitization replacement error:', error);
+    }
 
     return sanitized;
   }
@@ -393,88 +260,24 @@ export class SanitizationEngine {
   private calculateOverallSeverity(issues: SecurityIssue[]): SeverityLevel {
     if (issues.length === 0) return 'none';
     
-    const severityOrder: SeverityLevel[] = ['none', 'low', 'moderate', 'high'];
-    let maxSeverity: SeverityLevel = 'none';
-
-    issues.forEach(issue => {
-      const currentIndex = severityOrder.indexOf(issue.severity);
-      const maxIndex = severityOrder.indexOf(maxSeverity);
-      if (currentIndex > maxIndex) {
-        maxSeverity = issue.severity;
-      }
-    });
-
-    return maxSeverity;
+    const hasHigh = issues.some(issue => issue.severity === 'high');
+    const hasModerate = issues.some(issue => issue.severity === 'moderate');
+    
+    if (hasHigh) return 'high';
+    if (hasModerate) return 'moderate';
+    return 'low';
   }
 
   private generateGuidance(severity: SeverityLevel, issues: SecurityIssue[]): string {
     switch (severity) {
       case 'high':
-        return "⚠️ Critical security issues were found and removed. It is strongly recommended not to use the original output. The sanitized version should be safe for use.";
+        return "⚠️ Critical security issues detected and neutralized.";
       case 'moderate':
-        return "⚡ Some potentially harmful content was detected and neutralized. Please review the changes and verify the output still meets your needs.";
+        return "⚡ Some potentially harmful content was detected and handled.";
       case 'low':
-        return "✨ Minor issues were cleaned up for safety and privacy. The output should work as expected with improved security.";
+        return "✨ Minor issues were cleaned up for safety.";
       default:
-        return "✅ No security issues detected. The output appears safe to use as-is.";
+        return "✅ No security issues detected.";
     }
-  }
-
-  private performInputValidation(input: string, issues: SecurityIssue[]): void {
-    // Length limit validation
-    if (input.length > this.MAX_INPUT_LENGTH) {
-      issues.push({
-        id: generateId(),
-        type: 'script_injection',
-        severity: 'moderate',
-        description: 'Input exceeds maximum allowed length',
-        technicalDetails: `Input length: ${input.length} chars (limit: ${this.MAX_INPUT_LENGTH})`,
-        recommendation: 'Input has been truncated to prevent potential overflow attacks',
-        pattern: `[INPUT_TOO_LONG:${input.length}]`
-      });
-    }
-
-    // Simple suspicious character ratio detection (avoid complex regex)
-    const suspiciousChars = (input.match(/[<>'"&;={}[\]()]/g) || []).length;
-    const suspiciousRatio = suspiciousChars / input.length;
-    
-    if (suspiciousRatio > this.SUSPICIOUS_CHAR_THRESHOLD) {
-      issues.push({
-        id: generateId(),
-        type: 'script_injection',
-        severity: 'moderate',
-        description: 'Unusually high concentration of suspicious characters',
-        technicalDetails: `Suspicious character ratio: ${(suspiciousRatio * 100).toFixed(1)}%`,
-        recommendation: 'Input flagged for manual review due to suspicious character patterns',
-        pattern: `[SUSPICIOUS_RATIO:${suspiciousRatio.toFixed(3)}]`
-      });
-    }
-  }
-
-  private preprocessInput(input: string): string {
-    let processed = input;
-
-    // Remove zero-width and non-printable characters
-    processed = processed.replace(/[\u200B-\u200D\uFEFF\u2060]/g, '');
-    
-    // Simple HTML entity decoding (avoid complex regex)
-    processed = processed.replace(/&#(\d+);/g, (match, dec) => {
-      try {
-        const num = parseInt(dec, 10);
-        if (num > 31 && num < 127) { // Only decode safe ASCII
-          return String.fromCharCode(num);
-        }
-      } catch (e) {
-        // Keep original if conversion fails
-      }
-      return match;
-    });
-
-    // Truncate if too long
-    if (processed.length > this.MAX_INPUT_LENGTH) {
-      processed = processed.substring(0, this.MAX_INPUT_LENGTH) + '... [TRUNCATED]';
-    }
-
-    return processed;
   }
 }
