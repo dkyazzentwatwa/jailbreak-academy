@@ -165,7 +165,7 @@ const Index = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
                     <Zap className="h-4 w-4" />
-                    INPUT_ANALYZER
+                    OUTPUT_ANALYZER
                   </CardTitle>
                   <div className="flex items-center space-x-2">
                     <Switch
