@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,12 +22,13 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [expertMode, setExpertMode] = useState(false);
   const [showBootAnimation, setShowBootAnimation] = useState(true);
-  const sanitizer = new SanitizationEngine();
+  const [sanitizer] = useState(() => new SanitizationEngine());
 
   // Hide boot animation after 3 seconds
-  useState(() => {
-    setTimeout(() => setShowBootAnimation(false), 3000);
-  });
+  useEffect(() => {
+    const timer = setTimeout(() => setShowBootAnimation(false), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSanitize = async () => {
     if (!input.trim()) {
@@ -35,10 +36,13 @@ const Index = () => {
       return;
     }
 
+    console.log("Starting sanitization process...");
     setIsProcessing(true);
     
     try {
+      console.log("Calling sanitizer.sanitize...");
       const sanitizationResult = await sanitizer.sanitize(input);
+      console.log("Sanitization complete:", sanitizationResult);
       setResult(sanitizationResult);
       
       // Show appropriate toast based on severity
@@ -59,6 +63,7 @@ const Index = () => {
       console.error('Sanitization error:', error);
       toast.error("An error occurred during analysis. Please try again.");
     } finally {
+      console.log("Setting isProcessing to false");
       setIsProcessing(false);
     }
   };
