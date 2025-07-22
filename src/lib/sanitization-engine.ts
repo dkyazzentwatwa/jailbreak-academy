@@ -1,10 +1,13 @@
 import DOMPurify from 'dompurify';
 import { SecurityIssue, SanitizationResult, SeverityLevel, SanitizationPattern } from '@/types/sanitization';
 import { generateId } from '@/lib/utils';
+import { SecurityMonitor, sanitizeErrorMessage, validateInput } from '@/lib/security-utils';
 
 export class SanitizationEngine {
   private readonly MAX_INPUT_LENGTH = 100000; // 100KB limit
   private readonly SUSPICIOUS_CHAR_THRESHOLD = 0.1; // 10% suspicious chars triggers flag
+  private readonly MAX_PROCESSING_TIME = 5000; // 5 second timeout
+  private securityMonitor: SecurityMonitor;
   
   private patterns: SanitizationPattern[] = [
     // Advanced XSS Patterns
@@ -228,36 +231,100 @@ export class SanitizationEngine {
     }
   ];
 
+  constructor() {
+    this.securityMonitor = new SecurityMonitor();
+  }
+
   sanitize(input: string): SanitizationResult {
     const startTime = Date.now();
     const issues: SecurityIssue[] = [];
     let sanitizedOutput = input;
 
-    // Step 0: Pre-processing validation and checks
+    try {
+      // Step 0: Input validation
+      const validation = validateInput(input);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
+      // Record security metrics
+      this.securityMonitor.recordScan();
+      this.securityMonitor.logSecurityEvent('SCAN_START', `Input length: ${input.length}`);
+
+      // Set up timeout protection
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Processing timeout')), this.MAX_PROCESSING_TIME);
+      });
+
+      const processingPromise = this.performSanitization(input, issues);
+
+      // Race between processing and timeout
+      const result = await Promise.race([processingPromise, timeoutPromise]);
+      
+      return result;
+
+    } catch (error) {
+      this.securityMonitor.logSecurityEvent('SCAN_ERROR', sanitizeErrorMessage(error));
+      
+      return {
+        originalInput: input,
+        sanitizedOutput: '[ERROR: Could not process input safely]',
+        severity: 'high',
+        issues: [{
+          id: generateId(),
+          type: 'script_injection',
+          severity: 'high',
+          description: 'Processing error occurred',
+          technicalDetails: sanitizeErrorMessage(error),
+          recommendation: 'Input could not be processed safely',
+          pattern: '[PROCESSING_ERROR]'
+        }],
+        guidance: '⚠️ An error occurred during processing. For security, the input has been blocked.',
+        processingTime: Date.now() - startTime
+      };
+    }
+  }
+
+  private async performSanitization(input: string, issues: SecurityIssue[]): Promise<SanitizationResult> {
+    const startTime = Date.now();
+    let sanitizedOutput = input;
+
+    // Step 1: Pre-processing validation and checks
     this.performInputValidation(input, issues);
     
     // Clean zero-width and suspicious characters early
     sanitizedOutput = this.preprocessInput(sanitizedOutput);
 
-    // Step 1: Check for issues in original input
+    // Step 2: Check for issues in original input
     this.detectIssues(input, issues);
 
-    // Step 2: Apply DOMPurify for HTML sanitization
+    // Step 3: Apply DOMPurify for HTML sanitization
     if (this.containsHTML(sanitizedOutput)) {
-      sanitizedOutput = DOMPurify.sanitize(sanitizedOutput, {
-        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-        ALLOWED_ATTR: [],
-        KEEP_CONTENT: true
-      });
+      try {
+        sanitizedOutput = DOMPurify.sanitize(sanitizedOutput, {
+          ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+          ALLOWED_ATTR: [],
+          KEEP_CONTENT: true
+        });
+      } catch (error) {
+        this.securityMonitor.logSecurityEvent('DOMPURIFY_ERROR', sanitizeErrorMessage(error));
+        sanitizedOutput = '[HTML_SANITIZATION_FAILED]';
+      }
     }
 
-    // Step 3: Apply custom sanitization rules
+    // Step 4: Apply custom sanitization rules
     sanitizedOutput = this.applyCustomSanitization(sanitizedOutput, issues);
 
-    // Step 4: Determine overall severity
+    // Step 5: Determine overall severity
     const severity = this.calculateOverallSeverity(issues);
 
-    // Step 5: Generate guidance
+    // Record security metrics
+    this.securityMonitor.recordThreat(severity);
+    if (issues.length > 0) {
+      this.securityMonitor.logSecurityEvent('THREATS_DETECTED', `${issues.length} issues found, severity: ${severity}`);
+    }
+
+    // Step 6: Generate guidance
     const guidance = this.generateGuidance(severity, issues);
 
     const processingTime = Date.now() - startTime;

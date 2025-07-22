@@ -6,33 +6,70 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Shield, AlertTriangle, CheckCircle, Info, Eye, Code, FileText, Terminal, Zap, Download } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, Info, Eye, Code, FileText, Terminal, Zap, Download, Clock, Activity } from "lucide-react";
 import { SanitizationEngine } from "@/lib/sanitization-engine";
 import { SeverityLevel, SanitizationResult } from "@/types/sanitization";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { IssuesList } from "@/components/IssuesList";
 import { OutputDisplay } from "@/components/OutputDisplay";
+import { RateLimiter, SecurityMonitor, sanitizeErrorMessage } from "@/lib/security-utils";
 import jsPDF from 'jspdf';
+
 const Index = () => {
   const [input, setInput] = useState("");
   const [result, setResult] = useState<SanitizationResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [expertMode, setExpertMode] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+
+  // Initialize rate limiter and security monitor
+  const rateLimiter = new RateLimiter(5, 60000); // 5 requests per minute
+  const securityMonitor = new SecurityMonitor();
+
   const handleSanitize = async () => {
     if (!input.trim()) return;
+    
+    // Check rate limiting
+    if (!rateLimiter.isAllowed()) {
+      const resetTime = rateLimiter.getResetTime();
+      const waitTime = Math.ceil((resetTime - Date.now()) / 1000);
+      setRateLimitError(`Rate limit exceeded. Please wait ${waitTime} seconds before trying again.`);
+      return;
+    }
+    
+    setRateLimitError(null);
     setIsProcessing(true);
+    
     try {
       // Simulate processing time for UX
       await new Promise(resolve => setTimeout(resolve, 800));
       const sanitizer = new SanitizationEngine();
-      const sanitizationResult = sanitizer.sanitize(input);
+      const sanitizationResult = await sanitizer.sanitize(input);
       setResult(sanitizationResult);
     } catch (error) {
       console.error("Sanitization error:", error);
+      // Create error result
+      setResult({
+        originalInput: input,
+        sanitizedOutput: '[ERROR: Processing failed]',
+        severity: 'high',
+        issues: [{
+          id: 'error-' + Date.now(),
+          type: 'script_injection',
+          severity: 'high',
+          description: 'Processing error occurred',
+          technicalDetails: sanitizeErrorMessage(error),
+          recommendation: 'Input could not be processed safely',
+          pattern: '[ERROR]'
+        }],
+        guidance: '⚠️ An error occurred during processing. For security, the input has been blocked.',
+        processingTime: 0
+      });
     } finally {
       setIsProcessing(false);
     }
   };
+
   const handleExportPDF = () => {
     if (!result) return;
     const pdf = new jsPDF();
@@ -108,6 +145,7 @@ const Index = () => {
     // Save the PDF
     pdf.save(`llm-sanitization-report-${Date.now()}.pdf`);
   };
+
   const getSeverityIcon = (severity: SeverityLevel) => {
     switch (severity) {
       case 'high':
@@ -120,6 +158,7 @@ const Index = () => {
         return <CheckCircle className="h-5 w-5 text-terminal-green" />;
     }
   };
+
   const getSeverityMessage = (severity: SeverityLevel, issueCount: number) => {
     switch (severity) {
       case 'high':
@@ -132,6 +171,10 @@ const Index = () => {
         return "STATUS: All systems green - output verified secure";
     }
   };
+
+  const remainingRequests = rateLimiter.getRemainingRequests();
+  const metrics = securityMonitor.getMetrics();
+
   return <div className="min-h-screen bg-terminal-bg relative overflow-x-hidden">
       {/* Animated scan line */}
       <div className="scan-line" />
@@ -161,6 +204,44 @@ const Index = () => {
             Neutralizes malicious code, prevents XSS attacks, eliminates injection vectors.
           </p>
         </div>
+
+        {/* Security Status Bar */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-card border-terminal-green/30">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-terminal-green" />
+                <span className="font-mono text-xs text-terminal-green">RATE_LIMIT</span>
+              </div>
+              <p className="font-mono text-sm text-muted-foreground">{remainingRequests}/5 requests remaining</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-terminal-green/30">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-terminal-green" />
+                <span className="font-mono text-xs text-terminal-green">TOTAL_SCANS</span>
+              </div>
+              <p className="font-mono text-sm text-muted-foreground">{metrics.totalScans} processed</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-terminal-green/30">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-terminal-green" />
+                <span className="font-mono text-xs text-terminal-green">THREATS_BLOCKED</span>
+              </div>
+              <p className="font-mono text-sm text-muted-foreground">{metrics.threatsBlocked} neutralized</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Rate Limit Error */}
+        {rateLimitError && <Alert className="mb-6 border-red-500/50 bg-red-950/20">
+            <AlertTriangle className="h-4 w-4 text-red-400" />
+            <AlertTitle className="font-mono text-red-400">RATE_LIMIT_EXCEEDED</AlertTitle>
+            <AlertDescription className="font-mono text-xs text-muted-foreground">{rateLimitError}</AlertDescription>
+          </Alert>}
 
         {/* Mode Toggle and Export */}
         <div className="flex items-center justify-center gap-4 mb-6 font-mono">
@@ -194,7 +275,7 @@ const Index = () => {
                 <span className="text-muted-foreground">
                   BUFFER_SIZE: {input.length} bytes
                 </span>
-                <Button onClick={handleSanitize} disabled={!input.trim() || isProcessing} className="bg-terminal-green hover:bg-terminal-green/80 text-black font-mono font-bold tracking-wide transition-all duration-200 hover:shadow-lg hover:shadow-terminal-green/25">
+                <Button onClick={handleSanitize} disabled={!input.trim() || isProcessing || rateLimitError !== null} className="bg-terminal-green hover:bg-terminal-green/80 text-black font-mono font-bold tracking-wide transition-all duration-200 hover:shadow-lg hover:shadow-terminal-green/25">
                   {isProcessing ? <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2" />
                       ANALYZING...
@@ -236,6 +317,7 @@ const Index = () => {
                     </div>
                     <AlertDescription className="mt-2 font-mono text-xs">
                       {getSeverityMessage(result.severity, result.issues.length)}
+                      {result.processingTime > 0 && <span className="block mt-1 opacity-60">Processing time: {result.processingTime}ms</span>}
                     </AlertDescription>
                   </Alert>
 
@@ -292,6 +374,8 @@ const Index = () => {
                 // Neutralizes XSS, injections, prompt hijacking, and zero-day exploits
                 <br />
                 // [CLASSIFIED] Keeping the digital battlefield secure, one output at a time
+                <br />
+                // Enhanced with CSP, rate limiting, and real-time threat monitoring
               </p>
             </CardContent>
           </Card>
@@ -299,4 +383,5 @@ const Index = () => {
       </div>
     </div>;
 };
+
 export default Index;
