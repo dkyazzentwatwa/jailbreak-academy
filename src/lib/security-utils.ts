@@ -6,11 +6,6 @@ export interface SecurityMetrics {
   lastScanTime: number;
 }
 
-export interface RateLimitState {
-  requests: number[];
-  lastReset: number;
-}
-
 export class SecurityMonitor {
   private metrics: SecurityMetrics;
   private readonly STORAGE_KEY = 'ai-guardian-metrics';
@@ -73,56 +68,6 @@ export class SecurityMonitor {
   }
 }
 
-export class RateLimiter {
-  private static instances = new Map<string, RateLimitState>();
-  private readonly maxRequests: number;
-  private readonly windowMs: number;
-
-  constructor(maxRequests: number = 10, windowMs: number = 60000) {
-    this.maxRequests = maxRequests;
-    this.windowMs = windowMs;
-  }
-
-  isAllowed(identifier: string = 'default'): boolean {
-    const now = Date.now();
-    let state = RateLimiter.instances.get(identifier);
-
-    if (!state) {
-      state = { requests: [], lastReset: now };
-      RateLimiter.instances.set(identifier, state);
-    }
-
-    // Clean old requests outside the window
-    state.requests = state.requests.filter(time => now - time < this.windowMs);
-
-    // Check if under limit
-    if (state.requests.length >= this.maxRequests) {
-      return false;
-    }
-
-    // Add current request
-    state.requests.push(now);
-    return true;
-  }
-
-  getRemainingRequests(identifier: string = 'default'): number {
-    const state = RateLimiter.instances.get(identifier);
-    if (!state) return this.maxRequests;
-
-    const now = Date.now();
-    const validRequests = state.requests.filter(time => now - time < this.windowMs);
-    return Math.max(0, this.maxRequests - validRequests.length);
-  }
-
-  getResetTime(identifier: string = 'default'): number {
-    const state = RateLimiter.instances.get(identifier);
-    if (!state || state.requests.length === 0) return 0;
-
-    const oldestRequest = Math.min(...state.requests);
-    return oldestRequest + this.windowMs;
-  }
-}
-
 export function sanitizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     // Only return safe, non-sensitive error information
@@ -131,7 +76,8 @@ export function sanitizeErrorMessage(error: unknown): string {
       'Invalid format',
       'Processing failed',
       'Network error',
-      'Validation failed'
+      'Validation failed',
+      'Processing timeout'
     ];
     
     // Check if it's a safe error message
