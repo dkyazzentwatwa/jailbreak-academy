@@ -161,10 +161,7 @@ const Index = () => {
             <h1 className="text-2xl font-bold text-terminal-green terminal-green-glow">
               {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
             </h1>
-            <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow">
-              {gameMode ? "GAME_MODE" : "v2.0"}
-            </Badge>
-            <div className="flex items-center space-x-2 ml-auto">
+            <div className="flex items-center space-x-2">
               <Switch
                 id="game-mode"
                 checked={gameMode}
@@ -174,6 +171,9 @@ const Index = () => {
                 {gameMode ? "TRAINING" : "SECURITY"}
               </Label>
             </div>
+            <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow">
+              {gameMode ? "GAME_MODE" : "v2.0"}
+            </Badge>
           </div>
           <p className="text-muted-foreground text-sm typewriter mb-4">
             {gameMode 
@@ -183,22 +183,18 @@ const Index = () => {
           </p>
           
           {/* Social Media Links */}
-          <div className="mb-4 p-3 rounded border border-terminal-green/20 bg-terminal-bg/50">
-            <div className="text-xs text-terminal-green mb-2 font-mono">// CONNECT_WITH_DEVELOPER:</div>
-            <div className="flex flex-wrap gap-3 text-xs">
-              {socialLinks.map((link, index) => (
-                <a
-                  key={index}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
-                >
-                  <link.icon className="h-3 w-3" />
-                  <span className="font-mono">{link.label}</span>
-                </a>
-              ))}
-            </div>
+          <div className="absolute top-4 right-4 flex items-center gap-4">
+            {socialLinks.map((link, index) => (
+              <a
+                key={index}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
+              >
+                <link.icon className="h-5 w-5" />
+              </a>
+            ))}
           </div>
 
           {!gameMode && (

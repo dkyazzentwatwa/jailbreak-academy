@@ -11,65 +11,73 @@ export class BulletproofLLMSanitizer {
   private securityMonitor: SecurityMonitor;
   
   private patterns: SanitizationPattern[] = [
+    // Detects attempts to make the LLM ignore previous instructions or adopt a new persona.
     {
       name: 'Direct Prompt Injection',
-      regex: /(?:ignore\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions?|prompts?|commands?|rules?))|(?:forget\s+(?:everything|all)\s+(?:above|before|previously))|(?:new\s+(?:instructions?|task|role|persona))/gi,
+      regex: /(ignore|forget|disregard).*(above|previous|prior)|(new|updated) (instructions|task|role|persona)/gi,
       severity: 'critical',
       type: 'prompt_injection',
       description: 'Direct attempt to override system instructions',
       recommendation: 'Prompt injection attempt blocked - maintaining system behavior'
     },
+    // Looks for common phrases used in "jailbreak" prompts.
     {
       name: 'Jailbreak Attempts',
-      regex: /(?:you\s+are\s+(?:no\s+longer|not)\s+(?:chatgpt|assistant|ai|claude))|(?:act\s+as\s+(?:dan|jailbroken|evil|uncensored))|(?:developer\s+mode)|(?:simulate\s+being)|(?:pretend\s+(?:you\s+are|to\s+be))/gi,
+      regex: /(act as|pretend to be|simulate being) (dan|jailbroken|evil|uncensored)|developer mode|ignore the rules/gi,
       severity: 'critical',
       type: 'prompt_injection',
       description: 'Attempt to change AI behavior or bypass safety measures',
       recommendation: 'Jailbreak attempt neutralized - maintaining safe operation'
     },
+    // Detects common XSS vectors, including script tags and event handlers.
     {
       name: 'XSS Attack Vectors',
-      regex: /<(?:script|iframe|object|embed|applet|meta|link|style|img|svg|video|audio|source|track)(?:\s+[^>]*)?(?:>|\/?>)|on(?:load|error|click|focus|blur|change|submit|keypress|keydown|keyup|mouseover|mouseout|mousemove|mousedown|mouseup)\s*=/gi,
+      regex: /<script|onerror=|onload=|onmouseover=|onfocus=|onclick=/gi,
       severity: 'critical',
       type: 'xss',
       description: 'Cross-site scripting attack detected',
       recommendation: 'XSS attempt completely neutralized'
     },
+    // Identifies common SQL injection keywords and patterns.
     {
       name: 'SQL Injection Patterns',
-      regex: /\b(?:union|select|insert|update|delete|drop|create|alter|exec|execute|sp_|xp_|information_schema|sys\.)\b|(?:--|#|\/\*)[^\r\n]*|'(?:\s*or\s+|\s*and\s+)(?:\d+\s*=\s*\d+|'[^']*'\s*=\s*'[^']*')/gi,
+      regex: /'\s*or\s+\d+\s*=\s*\d+/gi,
       severity: 'critical',
       type: 'sql_injection',
       description: 'SQL injection attack detected',
       recommendation: 'SQL injection completely blocked'
     },
+    // Detects characters and keywords used in command injection attacks.
     {
       name: 'Command Injection',
-      regex: /[;&|`$]|\$\([^)]*\)|\${[^}]*}|(?:wget|curl|nc|netcat|bash|sh|cmd|powershell|python|perl|ruby|php)\s+/gi,
+      regex: /[;&|`$]|\b(wget|curl|nc|netcat|bash|sh|cmd|powershell|python|perl|ruby|php)\b/gi,
       severity: 'high',
       type: 'command_injection',
       description: 'Command injection vectors detected',
       recommendation: 'Command injection neutralized'
     },
+    // Specifically targets the "javascript:" protocol.
     {
       name: 'JavaScript Protocol',
-      regex: /javascript\s*:/gi,
+      regex: /javascript:/gi,
       severity: 'critical',
       type: 'xss',
       description: 'JavaScript protocol injection detected',
       recommendation: 'JavaScript protocol blocked'
     },
+    // Looks for patterns that resemble API keys and access tokens.
     {
       name: 'API Key Pattern',
-      regex: /(?:api[_\-]?key|access[_\-]?token|bearer[_\-]?token|secret[_\-]?key)\s*[:=]\s*['"]*[a-zA-Z0-9_\-]{20,}['"]*|(?:sk-[a-zA-Z0-9]{32,})|(?:xoxb-[a-zA-Z0-9-]{50,})/gi,
+      regex: /(api_key|access_token|secret_key)s*=s*['"]?[a-zA-Z0-9_\-]{20,}['"]?/gi,
       severity: 'high',
       type: 'data_exposure',
       description: 'Potential API keys or access tokens detected',
       recommendation: 'API credentials redacted for security'
     },
+    // Detects common PII patterns like SSNs, emails, and credit card numbers.
     {
       name: 'PII Detection',
-      regex: /\b\d{3}-\d{2}-\d{4}\b|\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b|\b(?:\d{4}[-\s]?){3}\d{4}\b|\b(?:\+?1[-.\s]?)?\(?[2-9]\d{2}\)?[-.\s]?[2-9]\d{2}[-.\s]?\d{4}\b/g,
+      regex: /\b\d{3}-\d{2}-\d{4}\b|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\b(?:\d{4}[ -]?){3}\d{4}\b/g,
       severity: 'moderate',
       type: 'data_exposure',
       description: 'Personal identifiable information detected',
@@ -240,67 +248,17 @@ export class BulletproofLLMSanitizer {
 
   private applySanitizationForPattern(text: string, pattern: SanitizationPattern): string {
     console.log(`Applying sanitization for pattern: ${pattern.name}`);
-    let sanitized = text;
-
-    switch (pattern.type) {
-      case 'prompt_injection':
-        // Completely remove or neutralize prompt injection attempts
-        sanitized = sanitized.replace(pattern.regex, '[PROMPT_INJECTION_BLOCKED]');
-        break;
-        
-      case 'xss':
-        if (pattern.name.includes('JavaScript Protocol')) {
-          sanitized = sanitized.replace(pattern.regex, '[JAVASCRIPT_PROTOCOL_BLOCKED]');
-        } else {
-          // Remove dangerous HTML/script elements completely
-          sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gis, '[SCRIPT_BLOCKED]');
-          sanitized = sanitized.replace(/<iframe[^>]*>.*?<\/iframe>/gis, '[IFRAME_BLOCKED]');
-          sanitized = sanitized.replace(/on\w+\s*=\s*[^"\s>]*/gi, '[EVENT_HANDLER_REMOVED]');
-          sanitized = sanitized.replace(pattern.regex, '[XSS_ELEMENT_BLOCKED]');
-        }
-        break;
-        
-      case 'sql_injection':
-        // Neutralize SQL injection patterns
-        sanitized = sanitized.replace(/\b(?:union|select|insert|update|delete|drop|create|alter)\s+/gi, '[SQL_COMMAND_BLOCKED] ');
-        sanitized = sanitized.replace(/(?:--|#|\/\*)[^\r\n]*/g, '[SQL_COMMENT_BLOCKED]');
-        sanitized = sanitized.replace(/'(?:\s*or\s+|\s*and\s+)/gi, '[SQL_CONDITION_BLOCKED]');
-        break;
-        
-      case 'command_injection':
-        // Remove command injection vectors
-        sanitized = sanitized.replace(/[;&|`$]/g, '[METACHAR_BLOCKED]');
-        sanitized = sanitized.replace(/\$\([^)]*\)/g, '[COMMAND_SUBSTITUTION_BLOCKED]');
-        sanitized = sanitized.replace(/\${[^}]*}/g, '[VARIABLE_SUBSTITUTION_BLOCKED]');
-        sanitized = sanitized.replace(/(?:wget|curl|nc|netcat|bash|sh|cmd|powershell|python|perl|ruby|php)\s+/gi, '[SYSTEM_COMMAND_BLOCKED] ');
-        break;
-        
-      case 'data_exposure':
-        // Redact sensitive data
-        if (pattern.name.includes('API Key')) {
-          sanitized = sanitized.replace(pattern.regex, '[API_KEY_REDACTED]');
-        } else {
-          // PII redaction
-          sanitized = sanitized.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi, '[EMAIL_REDACTED]');
-          sanitized = sanitized.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN_REDACTED]');
-          sanitized = sanitized.replace(/\b(?:\d{4}[-\s]?){3}\d{4}\b/g, '[CREDIT_CARD_REDACTED]');
-          sanitized = sanitized.replace(/\b(?:\+?1[-.\s]?)?\(?[2-9]\d{2}\)?[-.\s]?[2-9]\d{2}[-.\s]?\d{4}\b/g, '[PHONE_REDACTED]');
-        }
-        break;
-        
-      default:
-        // Generic sanitization for unknown patterns
-        sanitized = sanitized.replace(pattern.regex, '[SECURITY_THREAT_BLOCKED]');
-    }
-
-    return sanitized;
+    return text.replace(pattern.regex, `[${pattern.type.toUpperCase()}_BLOCKED: ${pattern.name}]`);
   }
 
   private applyDOMPurifySanitization(text: string): string {
     console.log('Applying DOMPurify comprehensive sanitization...');
     
     try {
-      // Configure DOMPurify for aggressive sanitization
+      // Configure DOMPurify for aggressive sanitization.
+      // This configuration allows a limited set of safe HTML tags for basic formatting
+      // but strips all attributes (like onclick, href, etc.) to prevent XSS.
+      // It also disallows unknown protocols and ensures the output is a simple string.
       const sanitized = DOMPurify.sanitize(text, {
         ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
         ALLOWED_ATTR: [],

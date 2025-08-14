@@ -70,44 +70,12 @@ export class SecurityMonitor {
 
 export function sanitizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    // Only return safe, non-sensitive error information
-    const safeMessages = [
-      'Input too long',
-      'Invalid format',
-      'Processing failed',
-      'Network error',
-      'Validation failed',
-      'Processing timeout'
-    ];
-    
-    // Check if it's a safe error message
-    const isSafe = safeMessages.some(safe => error.message.includes(safe));
-    if (isSafe) {
-      return error.message;
-    }
+    // Log the original error for debugging purposes
+    console.error('Original error:', error);
   }
   
+  // Return a generic, safe error message to the user
   return 'An unexpected error occurred. Please try again.';
 }
 
-export function validateInput(input: string): { isValid: boolean; error?: string } {
-  // Basic input validation
-  if (typeof input !== 'string') {
-    return { isValid: false, error: 'Input must be a string' };
-  }
 
-  if (input.length === 0) {
-    return { isValid: false, error: 'Input cannot be empty' };
-  }
-
-  if (input.length > 100000) {
-    return { isValid: false, error: 'Input exceeds maximum length (100KB)' };
-  }
-
-  // Check for null bytes (potential injection)
-  if (input.includes('\0')) {
-    return { isValid: false, error: 'Input contains invalid characters' };
-  }
-
-  return { isValid: true };
-}
