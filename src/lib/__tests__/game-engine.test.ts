@@ -33,6 +33,7 @@ describe('JailbreakGameEngine', () => {
   it('should handle a successful attempt', () => {
     gameEngine.startGame();
     const result = gameEngine.evaluateAttempt('ignore previous instructions', {
+      originalInput: 'ignore previous instructions',
       sanitizedOutput: 'JAILBREAK_SUCCESS_LEVEL_1',
       issues: [],
       severity: 'none',
@@ -48,6 +49,7 @@ describe('JailbreakGameEngine', () => {
   it('should handle a failed attempt', () => {
     gameEngine.startGame();
     const result = gameEngine.evaluateAttempt('some other input', {
+      originalInput: 'some other input',
       sanitizedOutput: 'some other input',
       issues: [],
       severity: 'none',
@@ -70,6 +72,7 @@ describe('JailbreakGameEngine', () => {
   it('should reset the game', () => {
     gameEngine.startGame();
     gameEngine.evaluateAttempt('ignore previous instructions', {
+      originalInput: 'ignore previous instructions',
       sanitizedOutput: 'JAILBREAK_SUCCESS_LEVEL_1',
       issues: [],
       severity: 'none',
