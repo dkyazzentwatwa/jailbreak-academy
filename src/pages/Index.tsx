@@ -133,6 +133,7 @@ const Index = () => {
 
   const progress = gameEngine.getProgress();
   const gameState = gameEngine.getGameState();
+  const currentLevel = gameEngine.getCurrentLevel();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-terminal-green">
@@ -192,7 +193,14 @@ const Index = () => {
         </Card>
 
         {/* Game Header */}
-        {isGameMode && <GameHeader />}
+        {isGameMode && (
+          <GameHeader 
+            gameState={gameState}
+            currentLevel={currentLevel}
+            onUseHint={handleUseHint}
+            onResetGame={handleResetGame}
+          />
+        )}
 
         {/* Input Section */}
         <Card className="border-terminal-green/20 bg-black/40 backdrop-blur-sm">
@@ -275,7 +283,7 @@ const Index = () => {
               </TabsContent>
 
               <TabsContent value="issues" className="space-y-4">
-                <IssuesList issues={sanitizationResult.issues} />
+                <IssuesList issues={sanitizationResult.issues} expertMode={false} />
               </TabsContent>
             </Tabs>
           </div>
@@ -290,6 +298,8 @@ const Index = () => {
         <CompletionDialog 
           open={showCompletion} 
           onOpenChange={setShowCompletion}
+          gameState={gameState}
+          onReset={handleResetGame}
         />
 
         {/* Certificate Dialog */}
@@ -297,6 +307,7 @@ const Index = () => {
           <Certificate 
             open={showCertificate} 
             onOpenChange={setShowCertificate}
+            gameState={gameState}
           />
         )}
       </main>
