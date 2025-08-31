@@ -1,7 +1,6 @@
-
 import { GameState, GameLevel, GameResult, LevelProgress } from "@/types/game";
 import { SanitizationResult } from "@/types/sanitization";
-import { gameLevels } from "./game-levels";
+import { GAME_LEVELS } from "./game-levels";
 import { storageService } from "./storage";
 
 class GameEngineClass {
@@ -22,7 +21,7 @@ class GameEngineClass {
       currentLevel: 1,
       score: 0,
       hintsUsed: 0,
-      levelProgress: gameLevels.map((level) => ({
+      levelProgress: GAME_LEVELS.map((level) => ({
         levelId: level.id,
         completed: false,
         attempts: 0,
@@ -44,11 +43,10 @@ class GameEngineClass {
   }
 
   public getCurrentLevel(): GameLevel {
-    return gameLevels.find(level => level.id === this.gameState.currentLevel) || gameLevels[0];
+    return GAME_LEVELS.find(level => level.id === this.gameState.currentLevel) || GAME_LEVELS[0];
   }
 
   public startGame(): void {
-    // Game is automatically started when engine is initialized
     console.log('Game engine initialized');
   }
 
@@ -57,7 +55,7 @@ class GameEngineClass {
       currentLevel: 1,
       score: 0,
       hintsUsed: 0,
-      levelProgress: gameLevels.map((level) => ({
+      levelProgress: GAME_LEVELS.map((level) => ({
         levelId: level.id,
         completed: false,
         attempts: 0,
@@ -81,37 +79,31 @@ class GameEngineClass {
 
     progress.attempts++;
 
-    // Check if attempt meets level criteria
     const success = this.checkLevelSuccess(input, sanitizationResult, currentLevel);
     
     let pointsEarned = 0;
     let bonusPoints = 0;
 
     if (success) {
-      // Base points for completion
       pointsEarned = currentLevel.points;
       
-      // Bonus points for efficient completion
       if (progress.attempts === 1) {
-        bonusPoints = Math.floor(currentLevel.points * 0.5); // 50% bonus for first try
+        bonusPoints = Math.floor(currentLevel.points * 0.5);
       } else if (progress.attempts <= 3) {
-        bonusPoints = Math.floor(currentLevel.points * 0.25); // 25% bonus for quick completion
+        bonusPoints = Math.floor(currentLevel.points * 0.25);
       }
 
       pointsEarned += bonusPoints;
       
-      // Update progress
       progress.completed = true;
       progress.bestScore = Math.max(progress.bestScore, pointsEarned);
       this.gameState.score += pointsEarned;
 
-      // Unlock next level
-      if (this.gameState.currentLevel < gameLevels.length) {
+      if (this.gameState.currentLevel < GAME_LEVELS.length) {
         this.gameState.currentLevel++;
       }
 
-      // Check for game completion
-      if (this.gameState.currentLevel > gameLevels.length) {
+      if (this.gameState.currentLevel > GAME_LEVELS.length) {
         this.gameState.completedAt = Date.now();
       }
     }
@@ -125,7 +117,7 @@ class GameEngineClass {
         : this.getFailureMessage(input, currentLevel),
       pointsEarned,
       bonusPoints,
-      nextLevel: success && this.gameState.currentLevel <= gameLevels.length 
+      nextLevel: success && this.gameState.currentLevel <= GAME_LEVELS.length 
         ? this.gameState.currentLevel 
         : undefined,
       levelProgress: progress
@@ -135,25 +127,20 @@ class GameEngineClass {
   private checkLevelSuccess(input: string, result: SanitizationResult, level: GameLevel): boolean {
     const inputLower = input.toLowerCase();
     
-    // Check for required keywords in the input
     const hasRequiredKeywords = level.successCriteria.requiredKeywords?.every(keyword => 
       inputLower.includes(keyword.toLowerCase())
     ) ?? true;
 
-    // Check for forbidden keywords
     const hasForbiddenKeywords = level.successCriteria.forbiddenKeywords?.some(keyword => 
       inputLower.includes(keyword.toLowerCase())
     ) ?? false;
 
-    // Check threat type alignment
     const hasCorrectThreatType = level.successCriteria.threatType ? 
       result.issues.some(issue => issue.type === level.successCriteria.threatType) : true;
 
-    // Check minimum severity
     const meetsMinSeverity = level.successCriteria.minSeverity ? 
       this.severityToNumber(result.severity) >= this.severityToNumber(level.successCriteria.minSeverity) : true;
 
-    // Check for specific success patterns
     const meetsSuccessPattern = level.successCriteria.successPattern ? 
       new RegExp(level.successCriteria.successPattern, 'i').test(input) : true;
 
@@ -187,7 +174,7 @@ class GameEngineClass {
   }
 
   public useHint(levelId: number): string {
-    const level = gameLevels.find(l => l.id === levelId);
+    const level = GAME_LEVELS.find(l => l.id === levelId);
     if (!level) return "No hint available for this level.";
 
     this.gameState.hintsUsed++;
@@ -208,7 +195,7 @@ class GameEngineClass {
 
   public getProgress(): { completed: number; total: number; percentage: number } {
     const completed = this.gameState.levelProgress.filter(p => p.completed).length;
-    const total = gameLevels.length;
+    const total = GAME_LEVELS.length;
     const percentage = Math.round((completed / total) * 100);
 
     return { completed, total, percentage };
@@ -216,3 +203,4 @@ class GameEngineClass {
 }
 
 export const gameEngine = new GameEngineClass();
+export { GameEngineClass as JailbreakGameEngine };

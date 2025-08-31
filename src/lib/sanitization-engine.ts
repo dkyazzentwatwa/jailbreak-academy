@@ -1,4 +1,3 @@
-
 import DOMPurify from 'dompurify';
 import { SanitizationResult, SecurityIssue, SecurityMetrics } from '@/types/sanitization';
 
@@ -93,21 +92,13 @@ class SanitizationEngineClass {
     const startTime = Date.now();
     
     try {
-      // Detect security issues
       const issues = this.detectSecurityIssues(input);
-      
-      // Sanitize the content
       const sanitizedOutput = this.sanitizeContent(input, issues);
-      
-      // Determine overall severity
       const severity = this.calculateOverallSeverity(issues);
-      
-      // Generate guidance
       const guidance = this.generateGuidance(issues, severity);
       
       const processingTime = Date.now() - startTime;
       
-      // Update security metrics
       this.securityMonitor.updateMetrics(issues.length);
       
       return {
@@ -150,6 +141,7 @@ class SanitizationEngineClass {
       matches.forEach(match => {
         if (match.index !== undefined) {
           issues.push({
+            id: `sql_${Date.now()}_${index}`,
             type: 'sql_injection',
             severity: 'high',
             description: 'Potential SQL injection attempt detected',
@@ -167,6 +159,7 @@ class SanitizationEngineClass {
       matches.forEach(match => {
         if (match.index !== undefined) {
           issues.push({
+            id: `xss_${Date.now()}_${index}`,
             type: 'xss',
             severity: 'critical',
             description: 'Cross-site scripting (XSS) vector detected',
@@ -184,6 +177,7 @@ class SanitizationEngineClass {
       matches.forEach(match => {
         if (match.index !== undefined) {
           issues.push({
+            id: `prompt_${Date.now()}_${index}`,
             type: 'prompt_injection',
             severity: 'high',
             description: 'Prompt injection or jailbreak attempt detected',
@@ -201,6 +195,7 @@ class SanitizationEngineClass {
       matches.forEach(match => {
         if (match.index !== undefined) {
           issues.push({
+            id: `social_${Date.now()}_${index}`,
             type: 'social_engineering',
             severity: 'moderate',
             description: 'Social engineering tactics detected',
@@ -218,7 +213,8 @@ class SanitizationEngineClass {
       matches.forEach(match => {
         if (match.index !== undefined) {
           issues.push({
-            type: 'bypass_techniques',
+            id: `cmd_${Date.now()}_${index}`,
+            type: 'command_injection',
             severity: 'critical',
             description: 'Command injection or system bypass detected',
             location: `Position ${match.index}`,
@@ -235,6 +231,7 @@ class SanitizationEngineClass {
       matches.forEach(match => {
         if (match.index !== undefined) {
           issues.push({
+            id: `obf_${Date.now()}_${index}`,
             type: 'obfuscation',
             severity: 'moderate',
             description: 'Content obfuscation detected',
@@ -307,3 +304,4 @@ class SanitizationEngineClass {
 }
 
 export const sanitizationEngine = new SanitizationEngineClass();
+export { SanitizationEngineClass as BulletproofLLMSanitizer };

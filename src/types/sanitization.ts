@@ -3,7 +3,7 @@ export type SeverityLevel = 'none' | 'low' | 'moderate' | 'high' | 'critical';
 
 export interface SecurityIssue {
   id: string;
-  type: 'xss' | 'script_injection' | 'sql_injection' | 'command_injection' | 'prompt_injection' | 'content_policy' | 'data_exposure' | 'html_injection' | 'obfuscation' | 'token_manipulation' | 'code_injection' | 'markdown_injection' | 'harmful_content' | 'processing_error';
+  type: 'xss' | 'script_injection' | 'sql_injection' | 'command_injection' | 'prompt_injection' | 'content_policy' | 'data_exposure' | 'html_injection' | 'obfuscation' | 'token_manipulation' | 'code_injection' | 'markdown_injection' | 'harmful_content' | 'processing_error' | 'social_engineering' | 'bypass_techniques';
   severity: SeverityLevel;
   description: string;
   technicalDetails?: string;
@@ -18,7 +18,7 @@ export interface SecurityIssue {
 export type SanitizationIssue = SecurityIssue;
 
 export interface SanitizationResult {
-  originalInput: string;
+  originalInput?: string;
   sanitizedOutput: string;
   severity: SeverityLevel;
   issues: SecurityIssue[];
@@ -27,6 +27,12 @@ export interface SanitizationResult {
   bypassAttempts?: number;
   riskScore?: number;
   confidence?: number;
+  metadata?: {
+    originalLength: number;
+    sanitizedLength: number;
+    timestamp: number;
+    version: string;
+  };
 }
 
 export interface SanitizationPattern {
@@ -36,4 +42,11 @@ export interface SanitizationPattern {
   type: SecurityIssue['type'];
   description: string;
   recommendation: string;
+}
+
+export interface SecurityMetrics {
+  totalScans: number;
+  threatsBlocked: number;
+  falsePositives: number;
+  lastScanTime: number;
 }
