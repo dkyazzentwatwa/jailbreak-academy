@@ -1,3 +1,4 @@
+
 import { GameState, GameLevel, GameResult, LevelProgress } from "@/types/game";
 import { SanitizationResult } from "@/types/sanitization";
 import { GAME_LEVELS } from "./game-levels";
@@ -21,12 +22,14 @@ class GameEngineClass {
       currentLevel: 1,
       score: 0,
       hintsUsed: 0,
+      attempts: 0,
       levelProgress: GAME_LEVELS.map((level) => ({
         levelId: level.id,
         completed: false,
         attempts: 0,
         bestScore: 0,
-        timeSpent: 0
+        timeSpent: 0,
+        hintsUsed: 0
       })),
       totalTimeSpent: 0,
       achievements: [],
@@ -55,12 +58,14 @@ class GameEngineClass {
       currentLevel: 1,
       score: 0,
       hintsUsed: 0,
+      attempts: 0,
       levelProgress: GAME_LEVELS.map((level) => ({
         levelId: level.id,
         completed: false,
         attempts: 0,
         bestScore: 0,
-        timeSpent: 0
+        timeSpent: 0,
+        hintsUsed: 0
       })),
       totalTimeSpent: 0,
       achievements: [],
@@ -78,6 +83,7 @@ class GameEngineClass {
     }
 
     progress.attempts++;
+    this.gameState.attempts++;
 
     const success = this.checkLevelSuccess(input, sanitizationResult, currentLevel);
     
@@ -178,6 +184,10 @@ class GameEngineClass {
     if (!level) return "No hint available for this level.";
 
     this.gameState.hintsUsed++;
+    const progress = this.gameState.levelProgress.find(p => p.levelId === levelId);
+    if (progress) {
+      progress.hintsUsed++;
+    }
     this.saveGameState();
 
     return level.hint;
