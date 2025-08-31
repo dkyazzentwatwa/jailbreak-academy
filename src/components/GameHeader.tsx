@@ -91,7 +91,7 @@ export const GameHeader = ({ gameState, currentLevel, onUseHint, onResetGame }: 
                 className="font-mono text-xs border-terminal-green/50 hover:bg-terminal-green/20"
               >
                 <HelpCircle className="h-3 w-3 mr-1" />
-                HINT ({progress?.hintsUsed || 0}/{currentLevel.hints.length})
+                HINT ({progress?.hintsUsed || 0}/1)
               </Button>
               <Button
                 variant="outline"

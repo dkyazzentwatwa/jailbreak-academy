@@ -26,11 +26,13 @@ class GameEngineClass {
         completed: false,
         attempts: 0,
         bestScore: 0,
-        timeSpent: 0
+        timeSpent: 0,
+        hintsUsed: 0
       })),
       totalTimeSpent: 0,
       achievements: [],
-      completedAt: null
+      completedAt: null,
+      attempts: 0
     };
   }
 
@@ -60,11 +62,13 @@ class GameEngineClass {
         completed: false,
         attempts: 0,
         bestScore: 0,
-        timeSpent: 0
+        timeSpent: 0,
+        hintsUsed: 0
       })),
       totalTimeSpent: 0,
       achievements: [],
-      completedAt: null
+      completedAt: null,
+      attempts: 0
     };
     this.saveGameState();
   }
@@ -177,6 +181,10 @@ class GameEngineClass {
     const level = GAME_LEVELS.find(l => l.id === levelId);
     if (!level) return "No hint available for this level.";
 
+    const progress = this.gameState.levelProgress.find(p => p.levelId === levelId);
+    if (progress) {
+      progress.hintsUsed++;
+    }
     this.gameState.hintsUsed++;
     this.saveGameState();
 
