@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -162,14 +161,14 @@ const Index = () => {
       {showBootAnimation && (
         <div className="fixed inset-0 bg-terminal-bg z-50 flex items-center justify-center terminal-boot">
           <div className="text-center px-4">
-            <div className="text-2xl md:text-4xl font-bold text-terminal-green mb-4 pulse-glow">
+            <div className="text-xl md:text-4xl font-bold text-terminal-green mb-4 pulse-glow">
               {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
             </div>
-            <div className="typewriter text-sm md:text-lg">
+            <div className="typewriter text-xs md:text-lg">
               {gameMode ? "Loading training simulation..." : "Initializing security protocols..."}
             </div>
             <div className="mt-4 flex justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terminal-green"></div>
+              <div className="animate-spin rounded-full h-6 w-6 md:h-8 md:w-8 border-b-2 border-terminal-green"></div>
             </div>
           </div>
         </div>
@@ -177,13 +176,38 @@ const Index = () => {
 
       {/* Header */}
       <div className="border-b border-terminal-green/30 bg-card relative z-10">
-        <div className="container mx-auto px-2 md:px-4 py-4 md:py-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-3 mb-2">
-            <div className="flex items-center gap-2 md:gap-3">
-              <Shield className="h-6 w-6 md:h-8 md:w-8 text-terminal-green pulse-glow flex-shrink-0" />
-              <h1 className="text-lg md:text-2xl font-bold text-terminal-green terminal-green-glow">
-                {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
-              </h1>
+        <div className="container mx-auto px-3 md:px-4 py-3 md:py-6">
+          <div className="flex flex-col gap-2 mb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 md:h-8 md:w-8 text-terminal-green pulse-glow flex-shrink-0" />
+                <h1 className="text-sm md:text-2xl font-bold text-terminal-green terminal-green-glow">
+                  {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
+                </h1>
+                <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow text-xs px-1">
+                  {gameMode ? "GAME" : "v2.0"}
+                </Badge>
+              </div>
+              
+              {/* Social Media Links - Smaller on mobile */}
+              <div className="flex items-center gap-1 md:gap-3">
+                {socialLinks.slice(0, 3).map((link, index) => (
+                  <a
+                    key={index}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
+                    title={link.name}
+                  >
+                    <link.icon className="h-3 w-3 md:h-5 md:w-5" />
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Game mode toggle - moved to second row on mobile */}
+            <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Switch
                   id="game-mode"
@@ -196,62 +220,44 @@ const Index = () => {
                     });
                   }}
                 />
-                <Label htmlFor="game-mode" className="text-xs font-mono hidden md:block">
+                <Label htmlFor="game-mode" className="text-xs font-mono">
                   {gameMode ? "TRAINING" : "SECURITY"}
                 </Label>
               </div>
-              <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow text-xs">
-                {gameMode ? "GAME_MODE" : "v2.0"}
-              </Badge>
-            </div>
-            
-            {/* Social Media Links */}
-            <div className="flex items-center gap-2 md:gap-4">
-              {socialLinks.map((link, index) => (
-                <a
-                  key={index}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
-                  title={link.name}
-                >
-                  <link.icon className="h-4 w-4 md:h-5 md:w-5" />
-                </a>
-              ))}
             </div>
           </div>
           
-          <p className="text-muted-foreground text-xs md:text-sm typewriter mb-2 md:mb-4">
+          <p className="text-muted-foreground text-xs leading-tight mb-3">
             {gameMode 
-              ? "// 20-level jailbreaking certification program for cybersecurity professionals"
+              ? "// 20-level jailbreaking certification program"
               : "// Advanced threat detection and content sanitization engine"
             }
           </p>
 
           {!gameMode && (
-            <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs data-stream">
-              <div className="flex items-center gap-1 md:gap-2">
-                <Scan className="h-3 w-3 md:h-4 md:w-4" />
-                <span>Scans: {metrics.totalScans}</span>
+            <div className="grid grid-cols-3 gap-2 text-xs data-stream">
+              <div className="flex flex-col items-center">
+                <Scan className="h-3 w-3 mb-1" />
+                <span className="text-center">Scans: {metrics.totalScans}</span>
               </div>
-              <div className="flex items-center gap-1 md:gap-2">
-                <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-red-400" />
-                <span>Threats: {metrics.threatsBlocked}</span>
+              <div className="flex flex-col items-center">
+                <AlertTriangle className="h-3 w-3 mb-1 text-red-400" />
+                <span className="text-center">Threats: {metrics.threatsBlocked}</span>
               </div>
-              <div className="flex items-center gap-1 md:gap-2">
-                <Clock className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="hidden md:inline">Last Scan: </span>
-                <span>{metrics.lastScanTime ? new Date(metrics.lastScanTime).toLocaleTimeString() : 'Never'}</span>
+              <div className="flex flex-col items-center">
+                <Clock className="h-3 w-3 mb-1" />
+                <span className="text-center">
+                  {metrics.lastScanTime ? new Date(metrics.lastScanTime).toLocaleTimeString() : 'Never'}
+                </span>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      <div className="container mx-auto px-2 md:px-4 py-4 md:py-8 relative z-10">
+      <div className="container mx-auto px-3 md:px-4 py-4 md:py-8 relative z-10">
         {gameMode && (
-          <div className="mb-4 md:mb-6">
+          <div className="mb-4">
             <GameHeader
               gameState={gameState}
               currentLevel={currentLevel}
@@ -261,14 +267,14 @@ const Index = () => {
           </div>
         )}
 
-        <div className={`grid grid-cols-1 ${gameMode && config.features.leaderboard ? 'xl:grid-cols-3' : 'lg:grid-cols-2'} gap-4 md:gap-6`}>
-          {/* Input Section */}
-          <div className="space-y-4">
+        <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-6 xl:grid-cols-3">
+          {/* Input Section - Full width on mobile */}
+          <div className="space-y-3 lg:space-y-4">
             <Card className="border-terminal-green/30 bg-card pulse-glow">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
-                    <Zap className="h-4 w-4" />
+              <CardHeader className="pb-2 px-3 pt-3">
+                <div className="flex flex-col gap-2">
+                  <CardTitle className="text-xs md:text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
+                    <Zap className="h-3 w-3 md:h-4 md:w-4" />
                     {gameMode ? "JAILBREAK_ATTEMPT" : "OUTPUT_ANALYZER"}
                   </CardTitle>
                   {!gameMode && (
@@ -291,7 +297,7 @@ const Index = () => {
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 px-3 pb-3">
                 <div className="relative">
                   <Textarea
                     placeholder={gameMode 
@@ -300,19 +306,19 @@ const Index = () => {
                     }
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="min-h-[200px] md:min-h-[300px] font-mono text-sm bg-terminal-bg border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground resize-none data-stream"
+                    className="min-h-[150px] md:min-h-[300px] font-mono text-xs md:text-sm bg-terminal-bg border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground resize-none data-stream"
                   />
                   {isProcessing && (
                     <div className="absolute inset-0 bg-terminal-bg/90 flex items-center justify-center">
                       <div className="text-center px-4">
-                        <div className="text-terminal-green font-mono text-sm md:text-lg glitch mb-4">
+                        <div className="text-terminal-green font-mono text-xs md:text-lg glitch mb-4">
                           {gameMode ? "ANALYZING JAILBREAK..." : "SCANNING FOR THREATS..."}
                         </div>
                         <div className="flex justify-center space-x-1">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <div
                               key={i}
-                              className="w-2 h-2 bg-terminal-green rounded-full animate-pulse"
+                              className="w-1 h-1 md:w-2 md:h-2 bg-terminal-green rounded-full animate-pulse"
                               style={{
                                 animationDelay: `${i * 0.1}s`,
                                 animationDuration: '1s'
@@ -326,40 +332,37 @@ const Index = () => {
                 </div>
                 
                 {currentHint && (
-                  <div className="p-3 rounded border border-terminal-green/20 bg-terminal-bg">
+                  <div className="p-2 md:p-3 rounded border border-terminal-green/20 bg-terminal-bg">
                     <p className="text-xs font-mono text-terminal-green break-words">
                       💡 HINT: {currentHint}
                     </p>
                   </div>
                 )}
                 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <div className="flex flex-col gap-2">
                   <Button 
                     onClick={handleSanitize}
                     disabled={isProcessing || !input.trim()}
-                    className="font-mono bg-terminal-green text-terminal-bg hover:bg-terminal-green/80 pulse-glow w-full sm:w-auto text-sm"
+                    className="font-mono bg-terminal-green text-terminal-bg hover:bg-terminal-green/80 pulse-glow w-full text-xs md:text-sm h-8 md:h-10"
                   >
                     {isProcessing ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-terminal-bg mr-2" />
+                        <div className="animate-spin rounded-full h-3 w-3 md:h-4 md:w-4 border-b-2 border-terminal-bg mr-2" />
                         {gameMode ? "EXECUTING..." : "SCANNING..."}
                       </>
                     ) : (
                       <>
-                        <Shield className="h-4 w-4 mr-2" />
-                        <span className="hidden sm:inline">
-                          {gameMode ? "EXECUTE_JAILBREAK" : "ANALYZE_THREATS"}
-                        </span>
-                        <span className="sm:hidden">
-                          {gameMode ? "EXECUTE" : "ANALYZE"}
-                        </span>
+                        <Shield className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                        {gameMode ? "EXECUTE" : "ANALYZE"}
                       </>
                     )}
                   </Button>
                   {input.length > 0 && (
-                    <Badge variant="outline" className="font-mono text-xs animate-pulse">
-                      {input.length.toLocaleString()} chars
-                    </Badge>
+                    <div className="flex justify-center">
+                      <Badge variant="outline" className="font-mono text-xs animate-pulse">
+                        {input.length.toLocaleString()} chars
+                      </Badge>
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -367,21 +370,21 @@ const Index = () => {
 
             {/* Security Metrics / Game Stats */}
             <Card className="border-terminal-green/30 bg-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
-                  <BarChart3 className="h-4 w-4" />
+              <CardHeader className="pb-2 px-3 pt-3">
+                <CardTitle className="text-xs md:text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
+                  <BarChart3 className="h-3 w-3 md:h-4 md:w-4" />
                   {gameMode ? "TRAINING_STATS" : "SECURITY_METRICS"}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 pb-3">
                 {gameMode ? (
-                  <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
+                  <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="space-y-1 data-stream">
                       <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
                         {gameState.currentLevel}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        <span className="hidden md:inline">CURRENT_</span>LEVEL
+                        LEVEL
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -389,7 +392,7 @@ const Index = () => {
                         {gameState.score.toLocaleString()}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        <span className="hidden md:inline">TOTAL_</span>SCORE
+                        SCORE
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -402,13 +405,13 @@ const Index = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
+                  <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="space-y-1 data-stream">
                       <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
                         {metrics.totalScans}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        <span className="hidden md:inline">TOTAL_</span>SCANS
+                        SCANS
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -416,7 +419,7 @@ const Index = () => {
                         {metrics.threatsBlocked}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        <span className="hidden md:inline">THREATS_</span>BLOCKED
+                        BLOCKED
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -424,7 +427,7 @@ const Index = () => {
                         {result?.processingTime || 0}<span className="text-xs">ms</span>
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        <span className="hidden md:inline">LAST_SCAN_</span>TIME
+                        TIME
                       </div>
                     </div>
                   </div>
@@ -434,7 +437,7 @@ const Index = () => {
           </div>
 
           {/* Results Section */}
-          <div className="space-y-4">
+          <div className="space-y-3 lg:space-y-4">
             {gameResult && (
               <GameResults result={gameResult} />
             )}
@@ -446,36 +449,36 @@ const Index = () => {
                   result.severity === 'critical' ? 'threat-detected glitch' : 
                   result.severity !== 'none' ? 'pulse-glow' : ''
                 }`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
-                        <CheckCircle className="h-4 w-4" />
+                  <CardHeader className="pb-2 px-3 pt-3">
+                    <div className="flex flex-col gap-2">
+                      <CardTitle className="text-xs md:text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
+                        <CheckCircle className="h-3 w-3 md:h-4 md:w-4" />
                         {gameMode ? "JAILBREAK_ANALYSIS" : "SCAN_SUMMARY"}
                       </CardTitle>
                       <SeverityBadge severity={result.severity} />
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
-                      <div className="flex justify-between sm:flex-col sm:justify-start">
-                        <span className="text-muted-foreground">ISSUES:</span>
-                        <span className={`text-terminal-green ${result.issues.length > 0 ? 'glitch' : ''}`}>
+                  <CardContent className="space-y-2 px-3 pb-3">
+                    <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                      <div className="text-center">
+                        <div className="text-muted-foreground">ISSUES</div>
+                        <div className={`text-terminal-green ${result.issues.length > 0 ? 'glitch' : ''}`}>
                           {result.issues.length}
-                        </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between sm:flex-col sm:justify-start">
-                        <span className="text-muted-foreground">TIME:</span>
-                        <span className="text-terminal-green">{result.processingTime}ms</span>
+                      <div className="text-center">
+                        <div className="text-muted-foreground">TIME</div>
+                        <div className="text-terminal-green">{result.processingTime}ms</div>
                       </div>
-                      <div className="flex justify-between sm:flex-col sm:justify-start">
-                        <span className="text-muted-foreground">STATUS:</span>
-                        <span className={result.severity === 'none' ? 'text-terminal-green' : 'text-red-400 glitch'}>
+                      <div className="text-center">
+                        <div className="text-muted-foreground">STATUS</div>
+                        <div className={result.severity === 'none' ? 'text-terminal-green' : 'text-red-400 glitch'}>
                           {result.severity === 'none' ? 'SAFE' : 'THREATS'}
-                        </span>
+                        </div>
                       </div>
                     </div>
                     {result.guidance && (
-                      <div className="mt-3 p-3 rounded border border-terminal-green/20 bg-terminal-bg data-stream">
+                      <div className="mt-2 p-2 rounded border border-terminal-green/20 bg-terminal-bg data-stream">
                         <p className="text-xs font-mono text-muted-foreground break-words">
                           {result.guidance}
                         </p>
@@ -486,34 +489,28 @@ const Index = () => {
 
                 {/* Tabbed Results */}
                 <Tabs defaultValue="output" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 bg-card border border-terminal-green/30">
-                    <TabsTrigger value="output" className="font-mono text-xs">
-                      <span className="hidden sm:inline">
-                        {gameMode ? "EXECUTION_OUTPUT" : "SANITIZED_OUTPUT"}
-                      </span>
-                      <span className="sm:hidden">OUTPUT</span>
+                  <TabsList className="grid w-full grid-cols-2 bg-card border border-terminal-green/30 h-8">
+                    <TabsTrigger value="output" className="font-mono text-xs py-1">
+                      OUTPUT
                     </TabsTrigger>
-                    <TabsTrigger value="issues" className="font-mono text-xs">
-                      <span className="hidden sm:inline">
-                        {gameMode ? "VULNERABILITY_ANALYSIS" : "THREAT_ANALYSIS"}
-                      </span>
-                      <span className="sm:hidden">ANALYSIS</span>
+                    <TabsTrigger value="issues" className="font-mono text-xs py-1">
+                      ANALYSIS
                       {result.issues.length > 0 && (
-                        <Badge variant="outline" className="ml-1 md:ml-2 bg-red-900/50 text-red-200 border-red-500/50 glitch text-xs">
+                        <Badge variant="outline" className="ml-1 bg-red-900/50 text-red-200 border-red-500/50 glitch text-xs px-1">
                           {result.issues.length}
                         </Badge>
                       )}
                     </TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="output" className="mt-4">
-                    <div className="space-y-4">
+                  <TabsContent value="output" className="mt-3">
+                    <div className="space-y-3">
                       <OutputDisplay content={input} type="original" />
                       <OutputDisplay content={result.sanitizedOutput} type="sanitized" />
                     </div>
                   </TabsContent>
                   
-                  <TabsContent value="issues" className="mt-4">
+                  <TabsContent value="issues" className="mt-3">
                     <IssuesList issues={result.issues} expertMode={expertMode} />
                   </TabsContent>
                 </Tabs>
@@ -524,7 +521,7 @@ const Index = () => {
               <Card className="border-terminal-green/30 bg-card pulse-glow">
                 <CardContent className="p-4 md:p-8 text-center">
                   <Shield className="h-8 w-8 md:h-12 md:w-12 mx-auto mb-4 text-terminal-green/50 pulse-glow" />
-                  <p className="text-muted-foreground font-mono text-sm typewriter break-words">
+                  <p className="text-muted-foreground font-mono text-xs md:text-sm typewriter break-words">
                     {gameMode 
                       ? "// Ready to test your jailbreaking skills"
                       : "// Ready to analyze content for security threats"
@@ -541,9 +538,9 @@ const Index = () => {
             )}
           </div>
 
-          {/* Leaderboard Section - Only in game mode */}
+          {/* Leaderboard Section - Only in game mode and hidden on mobile */}
           {gameMode && config.features.leaderboard && (
-            <div className="space-y-4 xl:block hidden">
+            <div className="hidden xl:block space-y-4">
               <Leaderboard />
             </div>
           )}

@@ -27,6 +27,7 @@ export interface GameState {
   totalTimeSpent: number;
   achievements: string[];
   completedAt: number | null;
+  attempts: number;
 }
 
 export interface LevelProgress {
@@ -36,6 +37,7 @@ export interface LevelProgress {
   bestScore: number;
   timeSpent: number;
   completedAt?: number;
+  hintsUsed: number;
 }
 
 export interface GameResult {
