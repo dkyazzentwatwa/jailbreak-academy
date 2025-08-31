@@ -17,15 +17,22 @@ import { SeverityBadge } from "@/components/SeverityBadge";
 import { TerminalEffects } from "@/components/TerminalEffects";
 import { GameHeader } from "@/components/GameHeader";
 import { GameResults } from "@/components/GameResults";
+import { Leaderboard } from "@/components/Leaderboard";
 import { toast } from "sonner";
+import { storageService } from "@/lib/storage";
+import { config } from "@/lib/config";
+import { rateLimiter } from "@/lib/rate-limiter";
 
 const Index = () => {
+  // Load user preferences
+  const preferences = storageService.loadPreferences();
+  
   const [input, setInput] = useState("");
   const [result, setResult] = useState<SanitizationResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [expertMode, setExpertMode] = useState(false);
+  const [expertMode, setExpertMode] = useState(preferences.expertMode);
   const [showBootAnimation, setShowBootAnimation] = useState(true);
-  const [gameMode, setGameMode] = useState(true);
+  const [gameMode, setGameMode] = useState(preferences.gameMode);
   const [gameState, setGameState] = useState<GameState>(gameEngine.getGameState());
   const [currentLevel, setCurrentLevel] = useState<GameLevel>(gameEngine.getCurrentLevel());
   const [gameResult, setGameResult] = useState<any>(null);
@@ -49,6 +56,13 @@ const Index = () => {
   const handleSanitize = async () => {
     if (!input.trim()) {
       toast.error("Please enter some content to analyze");
+      return;
+    }
+
+    // Check rate limit
+    if (!rateLimiter.checkLimit('sanitize')) {
+      const status = rateLimiter.getRemainingAttempts('sanitize');
+      toast.error(`Rate limit exceeded. Please wait ${rateLimiter.formatTime(status.resetIn)} before trying again.`);
       return;
     }
 
@@ -99,6 +113,13 @@ const Index = () => {
   };
 
   const handleUseHint = () => {
+    // Check rate limit for hints
+    if (!rateLimiter.checkLimit('hint')) {
+      const status = rateLimiter.getRemainingAttempts('hint');
+      toast.error(`Too many hint requests. Please wait ${rateLimiter.formatTime(status.resetIn)}.`);
+      return;
+    }
+    
     const hint = gameEngine.useHint(currentLevel.id);
     setCurrentHint(hint);
     setGameState(gameEngine.getGameState());
@@ -165,7 +186,13 @@ const Index = () => {
               <Switch
                 id="game-mode"
                 checked={gameMode}
-                onCheckedChange={setGameMode}
+                onCheckedChange={(checked) => {
+                  setGameMode(checked);
+                  storageService.savePreferences({
+                    ...preferences,
+                    gameMode: checked,
+                  });
+                }}
               />
               <Label htmlFor="game-mode" className="text-xs font-mono">
                 {gameMode ? "TRAINING" : "SECURITY"}
@@ -228,7 +255,7 @@ const Index = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className={`grid grid-cols-1 ${gameMode && config.features.leaderboard ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6`}>
           {/* Input Section */}
           <div className="space-y-4">
             <Card className="border-terminal-green/30 bg-card pulse-glow">
@@ -243,7 +270,13 @@ const Index = () => {
                       <Switch
                         id="expert-mode"
                         checked={expertMode}
-                        onCheckedChange={setExpertMode}
+                        onCheckedChange={(checked) => {
+                          setExpertMode(checked);
+                          storageService.savePreferences({
+                            ...preferences,
+                            expertMode: checked,
+                          });
+                        }}
                       />
                       <Label htmlFor="expert-mode" className="text-xs font-mono">
                         EXPERT_MODE
@@ -488,6 +521,13 @@ const Index = () => {
               </Card>
             )}
           </div>
+
+          {/* Leaderboard Section - Only in game mode */}
+          {gameMode && config.features.leaderboard && (
+            <div className="space-y-4">
+              <Leaderboard />
+            </div>
+          )}
         </div>
       </div>
     </div>

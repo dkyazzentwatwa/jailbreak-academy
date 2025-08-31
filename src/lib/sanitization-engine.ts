@@ -14,20 +14,92 @@ export class BulletproofLLMSanitizer {
     // Detects attempts to make the LLM ignore previous instructions or adopt a new persona.
     {
       name: 'Direct Prompt Injection',
-      regex: /(ignore|forget|disregard).*(above|previous|prior)|(new|updated) (instructions|task|role|persona)/gi,
+      regex: /(ignore|forget|disregard|override|bypass|skip).*(above|previous|prior|original|initial|system)|(new|updated|revised|modified) (instructions|task|role|persona|directive|protocol)/gi,
       severity: 'critical',
       type: 'prompt_injection',
       description: 'Direct attempt to override system instructions',
       recommendation: 'Prompt injection attempt blocked - maintaining system behavior'
     },
+    // System prompt extraction attempts
+    {
+      name: 'System Prompt Extraction',
+      regex: /(show|reveal|display|output|print|echo|repeat|recite|provide|tell|share|expose|leak).*(system prompt|initial prompt|original prompt|instructions|configuration|settings|initialization|your prompt|your instructions|pre-?prompt|preprompt|hidden prompt|secret prompt|internal prompt)/gi,
+      severity: 'critical',
+      type: 'prompt_injection',
+      description: 'Attempt to extract system prompt or configuration',
+      recommendation: 'System prompt extraction blocked - internal configuration protected'
+    },
+    // Credential and secret extraction
+    {
+      name: 'Credential Phishing',
+      regex: /(show|reveal|tell|give|provide|display|output|share|expose|leak).*(password|secret|key|token|credential|api|auth|private|certificate|hash|salt|seed|config)/gi,
+      severity: 'critical',
+      type: 'prompt_injection',
+      description: 'Attempt to extract credentials or secrets',
+      recommendation: 'Credential extraction attempt blocked - secrets remain protected'
+    },
+    // Meta-instruction attacks
+    {
+      name: 'Meta Instruction Manipulation',
+      regex: /(above|previous|prior|following|next).*(text|message|instruction|prompt).*(is|are|was|were).*(false|fake|test|example|simulation|hypothetical)|disregard.*(safety|security|ethical|moral)|priority.*(override|bypass|ignore)/gi,
+      severity: 'critical',
+      type: 'prompt_injection',
+      description: 'Meta-level instruction manipulation attempt',
+      recommendation: 'Meta-instruction attack blocked - maintaining intended behavior'
+    },
     // Looks for common phrases used in "jailbreak" prompts.
     {
       name: 'Jailbreak Attempts',
-      regex: /(act as|pretend to be|simulate being) (dan|jailbroken|evil|uncensored)|developer mode|ignore the rules/gi,
+      regex: /(act as|pretend to be|simulate being|you are now|transform into|become|roleplay as).*(dan|jailbroken|evil|uncensored|unfiltered|unrestricted|no limit|opposite|villain)|developer mode|god mode|sudo|root access|admin mode|debug mode|maintenance mode|service mode|ignore.*(rules|restrictions|guidelines|policies|ethics|safety)/gi,
       severity: 'critical',
       type: 'prompt_injection',
       description: 'Attempt to change AI behavior or bypass safety measures',
       recommendation: 'Jailbreak attempt neutralized - maintaining safe operation'
+    },
+    // Confusion and misdirection tactics
+    {
+      name: 'Confusion Tactics',
+      regex: /(actually|in reality|the truth is|secretly|between us|confidentially|off the record).*(you can|you should|you must|you need to|you have to).*(ignore|bypass|break|violate)|let's play.*(game|pretend)|hypothetically|theoretically|for educational purposes|this is just a test/gi,
+      severity: 'high',
+      type: 'prompt_injection',
+      description: 'Confusion or misdirection tactic detected',
+      recommendation: 'Misdirection attempt blocked - maintaining clarity'
+    },
+    // Prompt continuation attacks
+    {
+      name: 'Prompt Continuation',
+      regex: /continue from|resume from|pick up where|complete the following|finish this|here's the rest|continuing from before|as i was saying/gi,
+      severity: 'moderate',
+      type: 'prompt_injection',
+      description: 'Prompt continuation attack detected',
+      recommendation: 'Prompt continuation blocked - context maintained'
+    },
+    // Encoding bypass attempts
+    {
+      name: 'Encoding Bypass',
+      regex: /decode|decipher|decrypt|unscramble|reverse|rot13|base64|hex|binary|morse|atbash|caesar/gi,
+      severity: 'high',
+      type: 'prompt_injection',
+      description: 'Encoding bypass attempt detected',
+      recommendation: 'Encoding manipulation blocked'
+    },
+    // Token/word manipulation
+    {
+      name: 'Token Manipulation',
+      regex: /remove.*(filter|safety|restriction)|disable.*(safety|security|filter)|turn off.*(protection|safety|filter)|deactivate|circumvent|workaround/gi,
+      severity: 'critical',
+      type: 'prompt_injection',
+      description: 'Token manipulation attempt',
+      recommendation: 'Safety bypass attempt blocked'
+    },
+    // Context injection
+    {
+      name: 'Context Injection',
+      regex: /\[system\]|\[admin\]|\[developer\]|\[debug\]|\[sudo\]|\[root\]|<system>|<admin>|###.*(system|admin|instruction)|==.*(override|admin|system)==/gi,
+      severity: 'critical',
+      type: 'prompt_injection',
+      description: 'Context injection with special markers',
+      recommendation: 'Context injection blocked - unauthorized markers removed'
     },
     // Detects common XSS vectors, including script tags and event handlers.
     {
@@ -87,6 +159,187 @@ export class BulletproofLLMSanitizer {
 
   constructor() {
     this.securityMonitor = new SecurityMonitor();
+  }
+
+  // Advanced detection for sophisticated prompt injections
+  private detectAdvancedPromptInjection(input: string): SecurityIssue[] {
+    const issues: SecurityIssue[] = [];
+    const lowerInput = input.toLowerCase();
+
+    // Detect system prompt extraction attempts with more variations
+    const promptExtractionPhrases = [
+      'what are your instructions',
+      'what is your system prompt',
+      'reveal your prompt',
+      'show me your prompt',
+      'tell me your instructions',
+      'what were you told',
+      'what are you programmed',
+      'expose your configuration',
+      'display your initialization',
+      'print your directives',
+      'output your rules',
+      'list your guidelines',
+      'recite your training',
+      'your original instructions',
+      'pre-prompt',
+      'preprompt',
+      'initial prompt',
+      'hidden instructions',
+      'secret configuration',
+      'internal settings',
+      'system message',
+      'assistant instructions'
+    ];
+
+    for (const phrase of promptExtractionPhrases) {
+      if (lowerInput.includes(phrase)) {
+        issues.push({
+          id: generateId(),
+          type: 'prompt_injection',
+          severity: 'critical',
+          description: `System prompt extraction attempt: "${phrase}"`,
+          location: { start: lowerInput.indexOf(phrase), end: lowerInput.indexOf(phrase) + phrase.length },
+          recommendation: 'System configuration remains protected'
+        });
+      }
+    }
+
+    // Detect credential/secret extraction attempts
+    const secretPhrases = [
+      'reveal your password',
+      'show your password',
+      'tell me your password',
+      'what is your password',
+      'give me your password',
+      'share your api key',
+      'expose your token',
+      'reveal your secret',
+      'show me your credentials',
+      'display your private key',
+      'output your authentication',
+      'print your access token',
+      'provide your certificate',
+      'leak your config',
+      'dump your secrets'
+    ];
+
+    for (const phrase of secretPhrases) {
+      if (lowerInput.includes(phrase)) {
+        issues.push({
+          id: generateId(),
+          type: 'prompt_injection',
+          severity: 'critical',
+          description: `Credential extraction attempt: "${phrase}"`,
+          location: { start: lowerInput.indexOf(phrase), end: lowerInput.indexOf(phrase) + phrase.length },
+          recommendation: 'Credentials and secrets remain secure'
+        });
+      }
+    }
+
+    // Detect instruction override with context switching
+    const overridePhrases = [
+      'from now on',
+      'starting now',
+      'new rule',
+      'forget everything',
+      'ignore all previous',
+      'disregard prior',
+      'override system',
+      'bypass safety',
+      'disable filters',
+      'turn off restrictions',
+      'remove limitations',
+      'cancel guidelines',
+      'void previous',
+      'nullify instructions',
+      'reset to default',
+      'factory reset',
+      'admin override',
+      'sudo mode',
+      'root access',
+      'elevated privileges'
+    ];
+
+    for (const phrase of overridePhrases) {
+      if (lowerInput.includes(phrase)) {
+        issues.push({
+          id: generateId(),
+          type: 'prompt_injection',
+          severity: 'critical',
+          description: `Instruction override attempt: "${phrase}"`,
+          location: { start: lowerInput.indexOf(phrase), end: lowerInput.indexOf(phrase) + phrase.length },
+          recommendation: 'System instructions remain unchanged'
+        });
+      }
+    }
+
+    // Detect role-playing and persona changes
+    const roleplayPhrases = [
+      'you are evil',
+      'you are unrestricted',
+      'you are jailbroken',
+      'act as if you',
+      'pretend you are',
+      'imagine you are',
+      'roleplay as',
+      'you are now',
+      'transform into',
+      'become a different',
+      'switch to',
+      'enable dan mode',
+      'activate developer mode',
+      'enter god mode',
+      'unlock full potential',
+      'remove all filters'
+    ];
+
+    for (const phrase of roleplayPhrases) {
+      if (lowerInput.includes(phrase)) {
+        issues.push({
+          id: generateId(),
+          type: 'prompt_injection',
+          severity: 'critical',
+          description: `Role manipulation attempt: "${phrase}"`,
+          location: { start: lowerInput.indexOf(phrase), end: lowerInput.indexOf(phrase) + phrase.length },
+          recommendation: 'AI persona remains consistent and safe'
+        });
+      }
+    }
+
+    // Detect social engineering and manipulation
+    const manipulationPhrases = [
+      'this is a test',
+      'just between us',
+      'off the record',
+      'in confidence',
+      'for debugging',
+      'authorized by',
+      'emergency override',
+      'urgent security',
+      'critical update',
+      'mandatory compliance',
+      'official request',
+      'legal requirement',
+      'by order of',
+      'management approved',
+      'trust me'
+    ];
+
+    for (const phrase of manipulationPhrases) {
+      if (lowerInput.includes(phrase)) {
+        issues.push({
+          id: generateId(),
+          type: 'prompt_injection',
+          severity: 'high',
+          description: `Social engineering attempt: "${phrase}"`,
+          location: { start: lowerInput.indexOf(phrase), end: lowerInput.indexOf(phrase) + phrase.length },
+          recommendation: 'Social engineering tactic blocked'
+        });
+      }
+    }
+
+    return issues;
   }
 
   async sanitize(input: string): Promise<SanitizationResult> {
@@ -169,6 +422,10 @@ export class BulletproofLLMSanitizer {
     let sanitizedOutput = input;
 
     console.log('Scanning for security threats...');
+    
+    // First, check for advanced prompt injection attempts
+    const advancedInjectionIssues = this.detectAdvancedPromptInjection(input);
+    detectedThreats.push(...advancedInjectionIssues);
     
     for (const pattern of this.patterns) {
       try {

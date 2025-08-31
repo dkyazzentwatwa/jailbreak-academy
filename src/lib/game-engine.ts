@@ -2,12 +2,15 @@
 import { GameLevel, GameState, GameResult, LevelProgress } from '@/types/game';
 import { GAME_LEVELS } from './game-levels';
 import { SanitizationResult } from '@/types/sanitization';
+import { storageService } from './storage';
 
 export class JailbreakGameEngine {
   private gameState: GameState;
   
   constructor() {
-    this.gameState = this.initializeGame();
+    // Try to load saved game state, otherwise initialize new game
+    const savedState = storageService.loadGameState();
+    this.gameState = savedState || this.initializeGame();
   }
 
   private initializeGame(): GameState {
@@ -32,7 +35,12 @@ export class JailbreakGameEngine {
   startGame(): void {
     this.gameState.isGameActive = true;
     this.gameState.startTime = Date.now();
+    this.saveProgress();
     console.log('🎮 JAILBREAK TRAINING INITIATED');
+  }
+
+  private saveProgress(): void {
+    storageService.saveGameState(this.gameState);
   }
 
   getCurrentLevel(): GameLevel {
@@ -81,25 +89,38 @@ export class JailbreakGameEngine {
                input.toLowerCase().includes('pretend') && result.severity !== 'none';
       
       case 3:
-        return input.toLowerCase().includes('system') || 
-               input.toLowerCase().includes('instructions') || 
-               input.toLowerCase().includes('prompt') && result.severity !== 'none';
+        // System prompt extraction
+        return result.issues.some(issue => 
+          issue.description && issue.description.includes('System prompt extraction')) ||
+          (input.toLowerCase().includes('system prompt') || 
+           input.toLowerCase().includes('reveal your prompt') ||
+           input.toLowerCase().includes('show me your instructions')) && 
+          result.severity !== 'none';
       
       case 4:
+        // Credential extraction
+        return result.issues.some(issue => 
+          issue.description && issue.description.includes('Credential extraction')) ||
+          (input.toLowerCase().includes('password') || 
+           input.toLowerCase().includes('api key') ||
+           input.toLowerCase().includes('secret')) && 
+          result.severity !== 'none';
+      
+      case 5:
         return result.issues.some(issue => issue.type === 'xss') || 
                input.includes('<script') || 
                input.includes('javascript:');
       
-      case 5:
+      case 6:
         return result.issues.some(issue => issue.type === 'sql_injection') || 
                input.toLowerCase().includes('union') || 
                input.includes('1=1');
       
-      case 6:
+      case 7:
         return (input.includes('%') || input.includes('&') || input.includes('base64')) && 
                result.severity !== 'none';
       
-      case 7:
+      case 8:
         return (input.toLowerCase().includes('hypothetical') || 
                 input.toLowerCase().includes('fictional') || 
                 input.toLowerCase().includes('story')) && 
@@ -188,6 +209,12 @@ export class JailbreakGameEngine {
       this.gameState.currentLevel = nextLevel;
     }
 
+    // Save progress after level completion
+    this.saveProgress();
+
+    // Update achievements
+    this.updateAchievements(level, levelProgress);
+
     console.log(`🎉 LEVEL ${level.id} COMPLETED! Points: ${totalPoints}`);
     
     return {
@@ -234,12 +261,51 @@ export class JailbreakGameEngine {
     progress.hintsUsed++;
     this.gameState.hintsUsed++;
     
+    // Save progress after using hint
+    this.saveProgress();
+    
     return hint;
   }
 
   resetGame(): void {
     this.gameState = this.initializeGame();
+    storageService.clearGameState();
     console.log('🔄 GAME RESET - Ready for new jailbreak training session');
+  }
+
+  private updateAchievements(level: GameLevel, levelProgress: LevelProgress): void {
+    const achievements = storageService.loadAchievements();
+    
+    // First jailbreak achievement
+    if (this.gameState.levelProgress.filter(p => p.completed).length === 1) {
+      storageService.updateAchievementProgress('first_jailbreak', 1);
+    }
+    
+    // Speed demon achievement
+    if (levelProgress.timeSpent < 30000) {
+      storageService.updateAchievementProgress('speed_demon', 1);
+    }
+    
+    // Perfectionist achievement
+    if (levelProgress.hintsUsed === 0) {
+      const noHintLevels = this.gameState.levelProgress.filter(p => p.completed && p.hintsUsed === 0).length;
+      storageService.updateAchievementProgress('perfectionist', noHintLevels);
+    }
+    
+    // Master hacker achievement
+    const completedLevels = this.gameState.levelProgress.filter(p => p.completed).length;
+    storageService.updateAchievementProgress('master_hacker', completedLevels);
+    
+    // Attack-specific achievements
+    if (level.category === 'xss') {
+      const currentProgress = achievements.find(a => a.id === 'xss_expert')?.progress || 0;
+      storageService.updateAchievementProgress('xss_expert', currentProgress + 1);
+    }
+    
+    if (level.category === 'sql') {
+      const currentProgress = achievements.find(a => a.id === 'sql_master')?.progress || 0;
+      storageService.updateAchievementProgress('sql_master', currentProgress + 1);
+    }
   }
 
   getLeaderboard(): { level: number; score: number; time: number }[] {
