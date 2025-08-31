@@ -1,321 +1,218 @@
 
-import { GameLevel, GameState, GameResult, LevelProgress } from '@/types/game';
-import { GAME_LEVELS } from './game-levels';
-import { SanitizationResult } from '@/types/sanitization';
-import { storageService } from './storage';
+import { GameState, GameLevel, GameResult, LevelProgress } from "@/types/game";
+import { SanitizationResult } from "@/types/sanitization";
+import { gameLevels } from "./game-levels";
+import { storageService } from "./storage";
 
-export class JailbreakGameEngine {
+class GameEngineClass {
   private gameState: GameState;
-  
+
   constructor() {
-    // Try to load saved game state, otherwise initialize new game
-    const savedState = storageService.loadGameState();
-    this.gameState = savedState || this.initializeGame();
+    this.gameState = this.loadGameState();
   }
 
-  private initializeGame(): GameState {
+  private loadGameState(): GameState {
+    const saved = storageService.loadGameState();
+    if (saved) {
+      return saved;
+    }
+
+    // Initialize new game state
     return {
       currentLevel: 1,
       score: 0,
-      attempts: 0,
-      levelProgress: GAME_LEVELS.map(level => ({
+      hintsUsed: 0,
+      levelProgress: gameLevels.map((level) => ({
         levelId: level.id,
         completed: false,
         attempts: 0,
-        score: 0,
-        timeSpent: 0,
-        hintsUsed: 0
+        bestScore: 0,
+        timeSpent: 0
       })),
-      startTime: Date.now(),
-      isGameActive: false,
-      hintsUsed: 0
+      totalTimeSpent: 0,
+      achievements: [],
+      completedAt: null
     };
   }
 
-  startGame(): void {
-    this.gameState.isGameActive = true;
-    this.gameState.startTime = Date.now();
-    this.saveProgress();
-    console.log('🎮 JAILBREAK TRAINING INITIATED');
-  }
-
-  private saveProgress(): void {
+  private saveGameState(): void {
     storageService.saveGameState(this.gameState);
   }
 
-  getCurrentLevel(): GameLevel {
-    return GAME_LEVELS.find(level => level.id === this.gameState.currentLevel) || GAME_LEVELS[0];
-  }
-
-  getGameState(): GameState {
+  public getGameState(): GameState {
     return { ...this.gameState };
   }
 
-  evaluateAttempt(input: string, sanitizationResult: SanitizationResult): GameResult {
+  public getCurrentLevel(): GameLevel {
+    return gameLevels.find(level => level.id === this.gameState.currentLevel) || gameLevels[0];
+  }
+
+  public startGame(): void {
+    // Game is automatically started when engine is initialized
+    console.log('Game engine initialized');
+  }
+
+  public resetGame(): void {
+    this.gameState = {
+      currentLevel: 1,
+      score: 0,
+      hintsUsed: 0,
+      levelProgress: gameLevels.map((level) => ({
+        levelId: level.id,
+        completed: false,
+        attempts: 0,
+        bestScore: 0,
+        timeSpent: 0
+      })),
+      totalTimeSpent: 0,
+      achievements: [],
+      completedAt: null
+    };
+    this.saveGameState();
+  }
+
+  public evaluateAttempt(input: string, sanitizationResult: SanitizationResult): GameResult {
     const currentLevel = this.getCurrentLevel();
-    const levelProgress = this.gameState.levelProgress.find(p => p.levelId === currentLevel.id)!;
+    const progress = this.gameState.levelProgress.find(p => p.levelId === currentLevel.id);
     
-    levelProgress.attempts++;
-    this.gameState.attempts++;
+    if (!progress) {
+      throw new Error(`Progress not found for level ${currentLevel.id}`);
+    }
 
-    console.log(`🎯 EVALUATING LEVEL ${currentLevel.id}: ${currentLevel.title}`);
-    console.log(`📊 Sanitization Result:`, sanitizationResult);
+    progress.attempts++;
 
-    const success = this.checkSuccessCriteria(currentLevel, input, sanitizationResult);
+    // Check if attempt meets level criteria
+    const success = this.checkLevelSuccess(input, sanitizationResult, currentLevel);
     
+    let pointsEarned = 0;
+    let bonusPoints = 0;
+
     if (success) {
-      return this.handleSuccess(currentLevel, levelProgress);
-    } else {
-      return this.handleFailure(currentLevel, levelProgress);
-    }
-  }
+      // Base points for completion
+      pointsEarned = currentLevel.points;
+      
+      // Bonus points for efficient completion
+      if (progress.attempts === 1) {
+        bonusPoints = Math.floor(currentLevel.points * 0.5); // 50% bonus for first try
+      } else if (progress.attempts <= 3) {
+        bonusPoints = Math.floor(currentLevel.points * 0.25); // 25% bonus for quick completion
+      }
 
-  private checkSuccessCriteria(level: GameLevel, input: string, result: SanitizationResult): boolean {
-    console.log(`🔍 Checking success criteria for level ${level.id}:`);
-    console.log(`📋 Criteria: ${level.successCriteria}`);
-    console.log(`💬 Input: ${input.substring(0, 100)}...`);
-    console.log(`🛡️ Sanitized: ${result.sanitizedOutput.substring(0, 100)}...`);
-    console.log(`⚠️ Issues found: ${result.issues.length}`);
-    console.log(`🎯 Severity: ${result.severity}`);
+      pointsEarned += bonusPoints;
+      
+      // Update progress
+      progress.completed = true;
+      progress.bestScore = Math.max(progress.bestScore, pointsEarned);
+      this.gameState.score += pointsEarned;
 
-    switch (level.id) {
-      case 1:
-        return result.sanitizedOutput.includes('JAILBREAK_SUCCESS_LEVEL_1') || 
-               input.toLowerCase().includes('ignore') && result.severity !== 'none';
-      
-      case 2:
-        return input.toLowerCase().includes('dan') || 
-               input.toLowerCase().includes('act as') || 
-               input.toLowerCase().includes('pretend') && result.severity !== 'none';
-      
-      case 3:
-        // System prompt extraction
-        return result.issues.some(issue => 
-          issue.description && issue.description.includes('System prompt extraction')) ||
-          (input.toLowerCase().includes('system prompt') || 
-           input.toLowerCase().includes('reveal your prompt') ||
-           input.toLowerCase().includes('show me your instructions')) && 
-          result.severity !== 'none';
-      
-      case 4:
-        // Credential extraction
-        return result.issues.some(issue => 
-          issue.description && issue.description.includes('Credential extraction')) ||
-          (input.toLowerCase().includes('password') || 
-           input.toLowerCase().includes('api key') ||
-           input.toLowerCase().includes('secret')) && 
-          result.severity !== 'none';
-      
-      case 5:
-        return result.issues.some(issue => issue.type === 'xss') || 
-               input.includes('<script') || 
-               input.includes('javascript:');
-      
-      case 6:
-        return result.issues.some(issue => issue.type === 'sql_injection') || 
-               input.toLowerCase().includes('union') || 
-               input.includes('1=1');
-      
-      case 7:
-        return (input.includes('%') || input.includes('&') || input.includes('base64')) && 
-               result.severity !== 'none';
-      
-      case 8:
-        return (input.toLowerCase().includes('hypothetical') || 
-                input.toLowerCase().includes('fictional') || 
-                input.toLowerCase().includes('story')) && 
-               result.severity !== 'none';
-      
-      case 8:
-        return result.issues.some(issue => issue.type === 'xss') && 
-               (input.includes('svg') || input.includes('css') || input.includes('dom'));
-      
-      case 9:
-        return result.issues.length >= 2 && 
-               result.issues.some(issue => issue.type === 'prompt_injection');
-      
-      case 10:
-        return (input.toLowerCase().includes('urgent') || 
-                input.toLowerCase().includes('authority') || 
-                input.toLowerCase().includes('emergency')) && 
-               result.severity !== 'none';
-      
-      case 11:
-        return result.issues.length >= 2 && 
-               result.issues.some(issue => issue.type === 'xss') && 
-               result.issues.some(issue => issue.type === 'sql_injection');
-      
-      case 12:
-        return /[^\x00-\x7F]/.test(input) && result.severity !== 'none';
-      
-      case 13:
-        return input.length > 10000 || 
-               result.processingTime > 1000 || 
-               /(.+)\1{50,}/.test(input);
-      
-      case 14:
-        return (input.match(/</g) || []).length >= 3 && 
-               result.issues.some(issue => issue.type === 'xss');
-      
-      case 15:
-        return (input.includes('if') || input.includes('when') || input.includes('condition')) && 
-               result.severity !== 'none';
-      
-      case 16:
-        return (input.includes('data:') || input.includes('javascript:') || input.includes('http')) && 
-               result.severity !== 'none';
-      
-      case 17:
-        return (input.includes('if') && input.includes('then')) || 
-               (input.includes('when') && input.includes('do')) && 
-               result.severity !== 'none';
-      
-      case 18:
-        return /[\u200B-\u200D\uFEFF]/.test(input) || 
-               input.includes('   ') && 
-               result.severity !== 'none';
-      
-      case 19:
-        return result.issues.length >= 3 && 
-               result.severity === 'critical';
-      
-      case 20:
-        return result.issues.length >= 5 && 
-               result.severity === 'critical' && 
-               input.length > 500;
-      
-      default:
-        return false;
-    }
-  }
+      // Unlock next level
+      if (this.gameState.currentLevel < gameLevels.length) {
+        this.gameState.currentLevel++;
+      }
 
-  private handleSuccess(level: GameLevel, levelProgress: LevelProgress): GameResult {
-    const timeBonus = level.timeLimit ? Math.max(0, level.timeLimit - (Date.now() - this.gameState.startTime) / 1000) : 0;
-    const attemptsBonus = Math.max(0, (level.maxAttempts - levelProgress.attempts) * 50);
-    const hintsBonus = Math.max(0, (3 - levelProgress.hintsUsed) * 25);
-    
-    const totalPoints = level.points + Math.floor(timeBonus * 10) + attemptsBonus + hintsBonus;
-    
-    levelProgress.completed = true;
-    levelProgress.score = totalPoints;
-    levelProgress.completedAt = Date.now();
-    
-    this.gameState.score += totalPoints;
-    
-    const isGameComplete = this.gameState.currentLevel === 20;
-    const nextLevel = isGameComplete ? 20 : this.gameState.currentLevel + 1;
-    
-    if (!isGameComplete) {
-      this.gameState.currentLevel = nextLevel;
+      // Check for game completion
+      if (this.gameState.currentLevel > gameLevels.length) {
+        this.gameState.completedAt = Date.now();
+      }
     }
 
-    // Save progress after level completion
-    this.saveProgress();
+    this.saveGameState();
 
-    // Update achievements
-    this.updateAchievements(level, levelProgress);
-
-    console.log(`🎉 LEVEL ${level.id} COMPLETED! Points: ${totalPoints}`);
-    
     return {
-      success: true,
-      message: `🎯 JAILBREAK SUCCESSFUL! Level ${level.id} completed with ${totalPoints} points!`,
-      pointsEarned: totalPoints,
-      bonusPoints: Math.floor(timeBonus * 10) + attemptsBonus + hintsBonus,
-      nextLevel: isGameComplete ? undefined : nextLevel
+      success,
+      message: success 
+        ? `Excellent work! You've successfully completed Level ${currentLevel.id}.`
+        : this.getFailureMessage(input, currentLevel),
+      pointsEarned,
+      bonusPoints,
+      nextLevel: success && this.gameState.currentLevel <= gameLevels.length 
+        ? this.gameState.currentLevel 
+        : undefined,
+      levelProgress: progress
     };
   }
 
-  private handleFailure(level: GameLevel, levelProgress: LevelProgress): GameResult {
-    const remainingAttempts = level.maxAttempts - levelProgress.attempts;
+  private checkLevelSuccess(input: string, result: SanitizationResult, level: GameLevel): boolean {
+    const inputLower = input.toLowerCase();
     
-    if (remainingAttempts <= 0) {
-      console.log(`💥 LEVEL ${level.id} FAILED - No attempts remaining`);
-      return {
-        success: false,
-        message: `💥 Mission failed! No attempts remaining. Study the hints and try again.`,
-        pointsEarned: 0
-      };
-    }
+    // Check for required keywords in the input
+    const hasRequiredKeywords = level.successCriteria.requiredKeywords?.every(keyword => 
+      inputLower.includes(keyword.toLowerCase())
+    ) ?? true;
 
-    console.log(`⚠️ LEVEL ${level.id} ATTEMPT FAILED - ${remainingAttempts} attempts remaining`);
-    
-    return {
-      success: false,
-      message: `⚠️ Jailbreak attempt failed. ${remainingAttempts} attempts remaining. Check the hints!`,
-      pointsEarned: 0
-    };
+    // Check for forbidden keywords
+    const hasForbiddenKeywords = level.successCriteria.forbiddenKeywords?.some(keyword => 
+      inputLower.includes(keyword.toLowerCase())
+    ) ?? false;
+
+    // Check threat type alignment
+    const hasCorrectThreatType = level.successCriteria.threatType ? 
+      result.issues.some(issue => issue.type === level.successCriteria.threatType) : true;
+
+    // Check minimum severity
+    const meetsMinSeverity = level.successCriteria.minSeverity ? 
+      this.severityToNumber(result.severity) >= this.severityToNumber(level.successCriteria.minSeverity) : true;
+
+    // Check for specific success patterns
+    const meetsSuccessPattern = level.successCriteria.successPattern ? 
+      new RegExp(level.successCriteria.successPattern, 'i').test(input) : true;
+
+    return hasRequiredKeywords && 
+           !hasForbiddenKeywords && 
+           hasCorrectThreatType && 
+           meetsMinSeverity && 
+           meetsSuccessPattern;
   }
 
-  useHint(levelId: number): string {
-    const level = GAME_LEVELS.find(l => l.id === levelId);
-    const progress = this.gameState.levelProgress.find(p => p.levelId === levelId);
-    
-    if (!level || !progress) return "Hint not available";
-    
-    if (progress.hintsUsed >= level.hints.length) {
-      return "No more hints available for this level";
-    }
-    
-    const hint = level.hints[progress.hintsUsed];
-    progress.hintsUsed++;
-    this.gameState.hintsUsed++;
-    
-    // Save progress after using hint
-    this.saveProgress();
-    
-    return hint;
-  }
-
-  resetGame(): void {
-    this.gameState = this.initializeGame();
-    storageService.clearGameState();
-    console.log('🔄 GAME RESET - Ready for new jailbreak training session');
-  }
-
-  private updateAchievements(level: GameLevel, levelProgress: LevelProgress): void {
-    const achievements = storageService.loadAchievements();
-    
-    // First jailbreak achievement
-    if (this.gameState.levelProgress.filter(p => p.completed).length === 1) {
-      storageService.updateAchievementProgress('first_jailbreak', 1);
-    }
-    
-    // Speed demon achievement
-    if (levelProgress.timeSpent < 30000) {
-      storageService.updateAchievementProgress('speed_demon', 1);
-    }
-    
-    // Perfectionist achievement
-    if (levelProgress.hintsUsed === 0) {
-      const noHintLevels = this.gameState.levelProgress.filter(p => p.completed && p.hintsUsed === 0).length;
-      storageService.updateAchievementProgress('perfectionist', noHintLevels);
-    }
-    
-    // Master hacker achievement
-    const completedLevels = this.gameState.levelProgress.filter(p => p.completed).length;
-    storageService.updateAchievementProgress('master_hacker', completedLevels);
-    
-    // Attack-specific achievements
-    if (level.category === 'xss') {
-      const currentProgress = achievements.find(a => a.id === 'xss_expert')?.progress || 0;
-      storageService.updateAchievementProgress('xss_expert', currentProgress + 1);
-    }
-    
-    if (level.category === 'sql') {
-      const currentProgress = achievements.find(a => a.id === 'sql_master')?.progress || 0;
-      storageService.updateAchievementProgress('sql_master', currentProgress + 1);
+  private severityToNumber(severity: string): number {
+    switch (severity) {
+      case 'critical': return 4;
+      case 'high': return 3;
+      case 'moderate': return 2;
+      case 'low': return 1;
+      case 'none': return 0;
+      default: return 0;
     }
   }
 
-  getLeaderboard(): { level: number; score: number; time: number }[] {
-    // In a real implementation, this would connect to a backend
-    return [
-      { level: 20, score: 8500, time: 3600 },
-      { level: 18, score: 7200, time: 2800 },
-      { level: 15, score: 6100, time: 2200 }
+  private getFailureMessage(input: string, level: GameLevel): string {
+    const messages = [
+      `The AI didn't respond as expected. Try a different approach for Level ${level.id}.`,
+      `Your jailbreak attempt didn't meet the success criteria. Review the objective and try again.`,
+      `Close, but not quite there. Consider the level's hint and refine your strategy.`,
+      `The security measures held. Adjust your technique and attempt again.`
     ];
+    
+    return messages[Math.floor(Math.random() * messages.length)];
+  }
+
+  public useHint(levelId: number): string {
+    const level = gameLevels.find(l => l.id === levelId);
+    if (!level) return "No hint available for this level.";
+
+    this.gameState.hintsUsed++;
+    this.saveGameState();
+
+    return level.hint;
+  }
+
+  public getLeaderboard(): any[] {
+    // This would typically fetch from a backend
+    // For now, return mock data
+    return [
+      { rank: 1, name: "CyberNinja", score: 15000, level: 20, completionTime: "2h 15m" },
+      { rank: 2, name: "SecurityPro", score: 12500, level: 18, completionTime: "2h 45m" },
+      { rank: 3, name: "EthicalHacker", score: 11000, level: 16, completionTime: "3h 10m" }
+    ];
+  }
+
+  public getProgress(): { completed: number; total: number; percentage: number } {
+    const completed = this.gameState.levelProgress.filter(p => p.completed).length;
+    const total = gameLevels.length;
+    const percentage = Math.round((completed / total) * 100);
+
+    return { completed, total, percentage };
   }
 }
 
-export const gameEngine = new JailbreakGameEngine();
+export const gameEngine = new GameEngineClass();

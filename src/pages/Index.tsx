@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -160,11 +161,11 @@ const Index = () => {
       {/* Boot sequence overlay */}
       {showBootAnimation && (
         <div className="fixed inset-0 bg-terminal-bg z-50 flex items-center justify-center terminal-boot">
-          <div className="text-center">
-            <div className="text-4xl font-bold text-terminal-green mb-4 pulse-glow">
+          <div className="text-center px-4">
+            <div className="text-2xl md:text-4xl font-bold text-terminal-green mb-4 pulse-glow">
               {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
             </div>
-            <div className="typewriter text-lg">
+            <div className="typewriter text-sm md:text-lg">
               {gameMode ? "Loading training simulation..." : "Initializing security protocols..."}
             </div>
             <div className="mt-4 flex justify-center">
@@ -176,76 +177,81 @@ const Index = () => {
 
       {/* Header */}
       <div className="border-b border-terminal-green/30 bg-card relative z-10">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="h-8 w-8 text-terminal-green pulse-glow" />
-            <h1 className="text-2xl font-bold text-terminal-green terminal-green-glow">
-              {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
-            </h1>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="game-mode"
-                checked={gameMode}
-                onCheckedChange={(checked) => {
-                  setGameMode(checked);
-                  storageService.savePreferences({
-                    ...preferences,
-                    gameMode: checked,
-                  });
-                }}
-              />
-              <Label htmlFor="game-mode" className="text-xs font-mono">
-                {gameMode ? "TRAINING" : "SECURITY"}
-              </Label>
+        <div className="container mx-auto px-2 md:px-4 py-4 md:py-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-3 mb-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <Shield className="h-6 w-6 md:h-8 md:w-8 text-terminal-green pulse-glow flex-shrink-0" />
+              <h1 className="text-lg md:text-2xl font-bold text-terminal-green terminal-green-glow">
+                {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
+              </h1>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="game-mode"
+                  checked={gameMode}
+                  onCheckedChange={(checked) => {
+                    setGameMode(checked);
+                    storageService.savePreferences({
+                      ...preferences,
+                      gameMode: checked,
+                    });
+                  }}
+                />
+                <Label htmlFor="game-mode" className="text-xs font-mono hidden md:block">
+                  {gameMode ? "TRAINING" : "SECURITY"}
+                </Label>
+              </div>
+              <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow text-xs">
+                {gameMode ? "GAME_MODE" : "v2.0"}
+              </Badge>
             </div>
-            <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow">
-              {gameMode ? "GAME_MODE" : "v2.0"}
-            </Badge>
+            
+            {/* Social Media Links */}
+            <div className="flex items-center gap-2 md:gap-4">
+              {socialLinks.map((link, index) => (
+                <a
+                  key={index}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
+                  title={link.name}
+                >
+                  <link.icon className="h-4 w-4 md:h-5 md:w-5" />
+                </a>
+              ))}
+            </div>
           </div>
-          <p className="text-muted-foreground text-sm typewriter mb-4">
+          
+          <p className="text-muted-foreground text-xs md:text-sm typewriter mb-2 md:mb-4">
             {gameMode 
               ? "// 20-level jailbreaking certification program for cybersecurity professionals"
               : "// Advanced threat detection and content sanitization engine"
             }
           </p>
-          
-          {/* Social Media Links */}
-          <div className="absolute top-4 right-4 flex items-center gap-4">
-            {socialLinks.map((link, index) => (
-              <a
-                key={index}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
-              >
-                <link.icon className="h-5 w-5" />
-              </a>
-            ))}
-          </div>
 
           {!gameMode && (
-            <div className="flex items-center gap-6 text-xs data-stream">
-              <div className="flex items-center gap-2">
-                <Scan className="h-4 w-4" />
+            <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs data-stream">
+              <div className="flex items-center gap-1 md:gap-2">
+                <Scan className="h-3 w-3 md:h-4 md:w-4" />
                 <span>Scans: {metrics.totalScans}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                <span>Threats Blocked: {metrics.threatsBlocked}</span>
+              <div className="flex items-center gap-1 md:gap-2">
+                <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-red-400" />
+                <span>Threats: {metrics.threatsBlocked}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>Last Scan: {metrics.lastScanTime ? new Date(metrics.lastScanTime).toLocaleTimeString() : 'Never'}</span>
+              <div className="flex items-center gap-1 md:gap-2">
+                <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden md:inline">Last Scan: </span>
+                <span>{metrics.lastScanTime ? new Date(metrics.lastScanTime).toLocaleTimeString() : 'Never'}</span>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 relative z-10">
+      <div className="container mx-auto px-2 md:px-4 py-4 md:py-8 relative z-10">
         {gameMode && (
-          <div className="mb-6">
+          <div className="mb-4 md:mb-6">
             <GameHeader
               gameState={gameState}
               currentLevel={currentLevel}
@@ -255,12 +261,12 @@ const Index = () => {
           </div>
         )}
 
-        <div className={`grid grid-cols-1 ${gameMode && config.features.leaderboard ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6`}>
+        <div className={`grid grid-cols-1 ${gameMode && config.features.leaderboard ? 'xl:grid-cols-3' : 'lg:grid-cols-2'} gap-4 md:gap-6`}>
           {/* Input Section */}
           <div className="space-y-4">
             <Card className="border-terminal-green/30 bg-card pulse-glow">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
                     <Zap className="h-4 w-4" />
                     {gameMode ? "JAILBREAK_ATTEMPT" : "OUTPUT_ANALYZER"}
@@ -294,12 +300,12 @@ const Index = () => {
                     }
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="min-h-[300px] font-mono text-sm bg-terminal-bg border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground resize-none data-stream"
+                    className="min-h-[200px] md:min-h-[300px] font-mono text-sm bg-terminal-bg border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground resize-none data-stream"
                   />
                   {isProcessing && (
                     <div className="absolute inset-0 bg-terminal-bg/90 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-terminal-green font-mono text-lg glitch mb-4">
+                      <div className="text-center px-4">
+                        <div className="text-terminal-green font-mono text-sm md:text-lg glitch mb-4">
                           {gameMode ? "ANALYZING JAILBREAK..." : "SCANNING FOR THREATS..."}
                         </div>
                         <div className="flex justify-center space-x-1">
@@ -321,17 +327,17 @@ const Index = () => {
                 
                 {currentHint && (
                   <div className="p-3 rounded border border-terminal-green/20 bg-terminal-bg">
-                    <p className="text-xs font-mono text-terminal-green">
+                    <p className="text-xs font-mono text-terminal-green break-words">
                       💡 HINT: {currentHint}
                     </p>
                   </div>
                 )}
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                   <Button 
                     onClick={handleSanitize}
                     disabled={isProcessing || !input.trim()}
-                    className="font-mono bg-terminal-green text-terminal-bg hover:bg-terminal-green/80 pulse-glow"
+                    className="font-mono bg-terminal-green text-terminal-bg hover:bg-terminal-green/80 pulse-glow w-full sm:w-auto text-sm"
                   >
                     {isProcessing ? (
                       <>
@@ -341,7 +347,12 @@ const Index = () => {
                     ) : (
                       <>
                         <Shield className="h-4 w-4 mr-2" />
-                        {gameMode ? "EXECUTE_JAILBREAK" : "ANALYZE_THREATS"}
+                        <span className="hidden sm:inline">
+                          {gameMode ? "EXECUTE_JAILBREAK" : "ANALYZE_THREATS"}
+                        </span>
+                        <span className="sm:hidden">
+                          {gameMode ? "EXECUTE" : "ANALYZE"}
+                        </span>
                       </>
                     )}
                   </Button>
@@ -364,56 +375,56 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 {gameMode ? (
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
                     <div className="space-y-1 data-stream">
-                      <div className="text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
                         {gameState.currentLevel}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        CURRENT_LEVEL
+                        <span className="hidden md:inline">CURRENT_</span>LEVEL
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-2xl font-bold font-mono text-terminal-green glitch">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green glitch">
                         {gameState.score.toLocaleString()}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        TOTAL_SCORE
+                        <span className="hidden md:inline">TOTAL_</span>SCORE
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-2xl font-bold font-mono text-terminal-green">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green">
                         {gameState.levelProgress.filter(p => p.completed).length}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        COMPLETED
+                        DONE
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
                     <div className="space-y-1 data-stream">
-                      <div className="text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
                         {metrics.totalScans}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        TOTAL_SCANS
+                        <span className="hidden md:inline">TOTAL_</span>SCANS
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-2xl font-bold font-mono text-red-400 glitch">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-red-400 glitch">
                         {metrics.threatsBlocked}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        THREATS_BLOCKED
+                        <span className="hidden md:inline">THREATS_</span>BLOCKED
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-2xl font-bold font-mono text-terminal-green">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green">
                         {result?.processingTime || 0}<span className="text-xs">ms</span>
                       </div>
                       <div className="text-xs text-muted-foreground font-mono">
-                        LAST_SCAN_TIME
+                        <span className="hidden md:inline">LAST_SCAN_</span>TIME
                       </div>
                     </div>
                   </div>
@@ -436,7 +447,7 @@ const Index = () => {
                   result.severity !== 'none' ? 'pulse-glow' : ''
                 }`}>
                   <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
                         <CheckCircle className="h-4 w-4" />
                         {gameMode ? "JAILBREAK_ANALYSIS" : "SCAN_SUMMARY"}
@@ -445,25 +456,27 @@ const Index = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-muted-foreground">ISSUES_DETECTED:</span>
-                      <span className={`text-terminal-green ${result.issues.length > 0 ? 'glitch' : ''}`}>
-                        {result.issues.length}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-muted-foreground">PROCESSING_TIME:</span>
-                      <span className="text-terminal-green">{result.processingTime}ms</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-muted-foreground">STATUS:</span>
-                      <span className={result.severity === 'none' ? 'text-terminal-green' : 'text-red-400 glitch'}>
-                        {result.severity === 'none' ? 'SAFE' : 'THREATS_FOUND'}
-                      </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                      <div className="flex justify-between sm:flex-col sm:justify-start">
+                        <span className="text-muted-foreground">ISSUES:</span>
+                        <span className={`text-terminal-green ${result.issues.length > 0 ? 'glitch' : ''}`}>
+                          {result.issues.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between sm:flex-col sm:justify-start">
+                        <span className="text-muted-foreground">TIME:</span>
+                        <span className="text-terminal-green">{result.processingTime}ms</span>
+                      </div>
+                      <div className="flex justify-between sm:flex-col sm:justify-start">
+                        <span className="text-muted-foreground">STATUS:</span>
+                        <span className={result.severity === 'none' ? 'text-terminal-green' : 'text-red-400 glitch'}>
+                          {result.severity === 'none' ? 'SAFE' : 'THREATS'}
+                        </span>
+                      </div>
                     </div>
                     {result.guidance && (
                       <div className="mt-3 p-3 rounded border border-terminal-green/20 bg-terminal-bg data-stream">
-                        <p className="text-xs font-mono text-muted-foreground">
+                        <p className="text-xs font-mono text-muted-foreground break-words">
                           {result.guidance}
                         </p>
                       </div>
@@ -475,12 +488,18 @@ const Index = () => {
                 <Tabs defaultValue="output" className="w-full">
                   <TabsList className="grid w-full grid-cols-2 bg-card border border-terminal-green/30">
                     <TabsTrigger value="output" className="font-mono text-xs">
-                      {gameMode ? "EXECUTION_OUTPUT" : "SANITIZED_OUTPUT"}
+                      <span className="hidden sm:inline">
+                        {gameMode ? "EXECUTION_OUTPUT" : "SANITIZED_OUTPUT"}
+                      </span>
+                      <span className="sm:hidden">OUTPUT</span>
                     </TabsTrigger>
                     <TabsTrigger value="issues" className="font-mono text-xs">
-                      {gameMode ? "VULNERABILITY_ANALYSIS" : "THREAT_ANALYSIS"}
+                      <span className="hidden sm:inline">
+                        {gameMode ? "VULNERABILITY_ANALYSIS" : "THREAT_ANALYSIS"}
+                      </span>
+                      <span className="sm:hidden">ANALYSIS</span>
                       {result.issues.length > 0 && (
-                        <Badge variant="outline" className="ml-2 bg-red-900/50 text-red-200 border-red-500/50 glitch">
+                        <Badge variant="outline" className="ml-1 md:ml-2 bg-red-900/50 text-red-200 border-red-500/50 glitch text-xs">
                           {result.issues.length}
                         </Badge>
                       )}
@@ -503,18 +522,18 @@ const Index = () => {
 
             {!result && (
               <Card className="border-terminal-green/30 bg-card pulse-glow">
-                <CardContent className="p-8 text-center">
-                  <Shield className="h-12 w-12 mx-auto mb-4 text-terminal-green/50 pulse-glow" />
-                  <p className="text-muted-foreground font-mono text-sm typewriter">
+                <CardContent className="p-4 md:p-8 text-center">
+                  <Shield className="h-8 w-8 md:h-12 md:w-12 mx-auto mb-4 text-terminal-green/50 pulse-glow" />
+                  <p className="text-muted-foreground font-mono text-sm typewriter break-words">
                     {gameMode 
                       ? "// Ready to test your jailbreaking skills"
                       : "// Ready to analyze content for security threats"
                     }
                   </p>
-                  <p className="text-muted-foreground font-mono text-xs mt-2">
+                  <p className="text-muted-foreground font-mono text-xs mt-2 break-words">
                     {gameMode 
-                      ? "Craft your jailbreak attempt and click EXECUTE_JAILBREAK"
-                      : "Enter content above and click ANALYZE_THREATS to begin"
+                      ? "Craft your jailbreak attempt and click EXECUTE"
+                      : "Enter content above and click ANALYZE to begin"
                     }
                   </p>
                 </CardContent>
@@ -524,7 +543,7 @@ const Index = () => {
 
           {/* Leaderboard Section - Only in game mode */}
           {gameMode && config.features.leaderboard && (
-            <div className="space-y-4">
+            <div className="space-y-4 xl:block hidden">
               <Leaderboard />
             </div>
           )}
