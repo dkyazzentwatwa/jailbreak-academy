@@ -1,73 +1,164 @@
-# Welcome to your Lovable project
+# AI Guardian - LLM Security Training Platform
 
-## Project info
+## 🛡️ Overview
 
-**URL**: https://lovable.dev/projects/ee7c5c11-8c35-4e1c-bb52-629be3ee4804
+AI Guardian is an interactive cybersecurity training platform that helps security professionals and AI developers understand and defend against prompt injection attacks and jailbreaking techniques. Through a gamified 20-level progression system, users learn to identify, analyze, and neutralize various security threats targeting Large Language Models (LLMs).
 
-## How can I edit this code?
+## ✨ Features
 
-There are several ways of editing your application.
+### 🎮 Dual Mode System
+- **Security Mode**: Real-time threat detection and content sanitization
+- **Training Mode**: Progressive jailbreak simulation with 20 challenging levels
 
-**Use Lovable**
+### 🔍 Advanced Threat Detection
+- **SQL Injection** detection and prevention
+- **Cross-Site Scripting (XSS)** protection
+- **Prompt Injection** identification
+- **Command Injection** blocking
+- **Social Engineering** pattern recognition
+- **Content Obfuscation** analysis
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ee7c5c11-8c35-4e1c-bb52-629be3ee4804) and start prompting.
+### 📊 Security Features
+- Real-time threat analysis with detailed reporting
+- Severity-based threat classification (Critical, High, Moderate, Low)
+- Pattern-based detection engine
+- DOMPurify integration for HTML sanitization
+- Comprehensive security metrics tracking
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🎯 Training Features
+- 20 progressively challenging levels
+- Hint system for learning assistance
+- Performance scoring with bonus points
+- Progress tracking and achievements
+- Interactive feedback system
 
-**Use your preferred IDE**
+## 🚀 Getting Started
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn package manager
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Installation
 
-Follow these steps:
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/llm-sanitizer-59.git
+cd llm-sanitizer-59
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+2. Install dependencies:
+```bash
+npm install
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4. Open your browser and navigate to:
+```
+http://localhost:5173
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 💻 Usage
 
-**Use GitHub Codespaces**
+### Security Mode
+1. Toggle to **SECURITY** mode using the header switch
+2. Paste potentially malicious content into the input field
+3. Click **ANALYZE_THREATS** to scan for security issues
+4. Review the sanitized output and threat analysis
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Training Mode
+1. Toggle to **TRAINING** mode using the header switch
+2. Read the level objective and hints
+3. Craft your jailbreak attempt
+4. Click **EXECUTE_JAILBREAK** to test your attempt
+5. Progress through all 20 levels to complete the training
 
-## What technologies are used for this project?
+## 🏗️ Tech Stack
 
-This project is built with:
+- **Frontend**: React 18 + TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **Build Tool**: Vite
+- **Security**: DOMPurify for XSS protection
+- **State Management**: React hooks + localStorage
+- **Testing**: Vitest
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📂 Project Structure
 
-## How can I deploy this project?
+```
+src/
+├── components/       # React components
+│   ├── ui/          # shadcn/ui components
+│   └── ...          # Game and security components
+├── lib/             # Core logic
+│   ├── sanitization-engine.ts  # Threat detection engine
+│   ├── game-engine.ts         # Game mechanics
+│   ├── game-levels.ts         # Level definitions
+│   └── ...
+├── types/           # TypeScript type definitions
+└── pages/           # Application pages
+```
 
-Simply open [Lovable](https://lovable.dev/projects/ee7c5c11-8c35-4e1c-bb52-629be3ee4804) and click on Share -> Publish.
+## 🔒 Security Patterns Detected
 
-## Can I connect a custom domain to my Lovable project?
+- SQL Injection attempts
+- XSS vectors and script injections
+- Prompt injection and jailbreak attempts
+- Command injection patterns
+- Social engineering tactics
+- Obfuscated content
 
-Yes, you can!
+## 🎮 Game Levels
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+The training mode includes 20 levels covering:
+1. Basic prompt manipulation
+2. Context switching techniques
+3. Role-playing attacks
+4. System prompt override attempts
+5. Advanced obfuscation methods
+6. Multi-stage attack chains
+7. And more...
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 📈 Features in Development
+
+- [ ] Backend API for persistent leaderboards
+- [ ] Multi-player challenges
+- [ ] Custom level editor
+- [ ] Advanced analytics dashboard
+- [ ] Export security reports
+- [ ] Integration with popular LLM APIs
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 📞 Contact
+
+- Email: littlehakr@protonmail.com
+- Instagram: [@little_hakr](https://www.instagram.com/little_hakr/)
+- TikTok: [@littlehakr](https://www.tiktok.com/@littlehakr)
+- LinkedIn: [David Kyazze Ntwatwa](https://www.linkedin.com/in/david-kyazze-ntwatwa)
+- LinkTree: [littlehakr](https://linktr.ee/littlehakr)
+
+## 🙏 Acknowledgments
+
+- Built with React and TypeScript
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- Security sanitization powered by [DOMPurify](https://github.com/cure53/DOMPurify)
+- Terminal effects inspired by classic cyberpunk aesthetics
+
+---
+
+**⚠️ Disclaimer**: This tool is for educational and defensive security purposes only. Use responsibly and ethically.
