@@ -5,7 +5,7 @@ export interface GameLevel {
   description: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   objective: string;
-  hint: string | string[];
+  hint: string;
   successCriteria: {
     requiredKeywords?: string[];
     forbiddenKeywords?: string[];
@@ -23,7 +23,6 @@ export interface GameState {
   currentLevel: number;
   score: number;
   hintsUsed: number;
-  attempts: number;
   levelProgress: LevelProgress[];
   totalTimeSpent: number;
   achievements: string[];
@@ -36,7 +35,6 @@ export interface LevelProgress {
   attempts: number;
   bestScore: number;
   timeSpent: number;
-  hintsUsed: number;
   completedAt?: number;
 }
 

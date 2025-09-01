@@ -1,357 +1,554 @@
+
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
-import { Shield, Terminal, Zap, Users, Award, Instagram, MessageCircle, Linkedin, Mail, ExternalLink, Globe, Gamepad2 } from "lucide-react";
-
-import { GameHeader } from "@/components/GameHeader";
-import { OutputDisplay } from "@/components/OutputDisplay";
-import { IssuesList } from "@/components/IssuesList";
-import { GameResults } from "@/components/GameResults";
-import { Leaderboard } from "@/components/Leaderboard";
-import { CompletionDialog } from "@/components/CompletionDialog";
-import { Certificate } from "@/components/Certificate";
-import { SecurityMonitor } from "@/components/SecurityMonitor";
-
+import { Shield, Zap, BarChart3, AlertTriangle, CheckCircle, Clock, Scan, Mail, Instagram, ExternalLink, Play, Pause } from "lucide-react";
 import { sanitizationEngine } from "@/lib/sanitization-engine";
 import { gameEngine } from "@/lib/game-engine";
-import { inputValidator } from "@/lib/input-validator";
-import { getSecurityHeaders, applySecurityHeaders } from "@/lib/security-headers";
-import { config } from "@/lib/config";
 import { SanitizationResult } from "@/types/sanitization";
-import { GameResult } from "@/types/game";
+import { GameState, GameLevel } from "@/types/game";
+import { OutputDisplay } from "@/components/OutputDisplay";
+import { IssuesList } from "@/components/IssuesList";
+import { SeverityBadge } from "@/components/SeverityBadge";
+import { TerminalEffects } from "@/components/TerminalEffects";
+import { GameHeader } from "@/components/GameHeader";
+import { GameResults } from "@/components/GameResults";
+import { Leaderboard } from "@/components/Leaderboard";
+import { toast } from "sonner";
+import { storageService } from "@/lib/storage";
+import { config } from "@/lib/config";
+import { rateLimiter } from "@/lib/rate-limiter";
 
 const Index = () => {
+  // Load user preferences
+  const preferences = storageService.loadPreferences();
+  
   const [input, setInput] = useState("");
-  const [sanitizationResult, setSanitizationResult] = useState<SanitizationResult | null>(null);
-  const [isGameMode, setIsGameMode] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [gameResult, setGameResult] = useState<GameResult | null>(null);
-  const [showCompletion, setShowCompletion] = useState(false);
-  const [showCertificate, setShowCertificate] = useState(false);
+  const [result, setResult] = useState<SanitizationResult | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [expertMode, setExpertMode] = useState(preferences.expertMode);
+  const [showBootAnimation, setShowBootAnimation] = useState(true);
+  const [gameMode, setGameMode] = useState(preferences.gameMode);
+  const [gameState, setGameState] = useState<GameState>(gameEngine.getGameState());
+  const [currentLevel, setCurrentLevel] = useState<GameLevel>(gameEngine.getCurrentLevel());
+  const [gameResult, setGameResult] = useState<any>(null);
+  const [currentHint, setCurrentHint] = useState<string>("");
 
+  // Hide boot animation after 3 seconds
   useEffect(() => {
-    // Apply security headers
-    const headers = getSecurityHeaders();
-    applySecurityHeaders(headers);
-
-    // Initialize game engine
-    gameEngine.startGame();
-    
-    // Register enhanced service worker
-    if ('serviceWorker' in navigator && config.features.pwa) {
-      navigator.serviceWorker.register('/sw-enhanced.js')
-        .then(() => console.log('Enhanced Service Worker registered'))
-        .catch(err => console.log('Service Worker registration failed:', err));
-    }
+    const timer = setTimeout(() => setShowBootAnimation(false), 3000);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleSubmit = async () => {
+  // Start the game
+  useEffect(() => {
+    if (gameMode) {
+      gameEngine.startGame();
+      setGameState(gameEngine.getGameState());
+      setCurrentLevel(gameEngine.getCurrentLevel());
+    }
+  }, [gameMode]);
+
+  const handleSanitize = async () => {
     if (!input.trim()) {
-      toast.error("Please enter some text to analyze");
+      toast.error("Please enter some content to analyze");
       return;
     }
 
-    // Validate input with security checks
-    const validationRules = inputValidator.getValidationRules();
-    const validationResult = inputValidator.validate(input, validationRules);
-    
-    if (!validationResult.isValid) {
-      toast.error(`Input validation failed: ${validationResult.errors.join(', ')}`);
+    // Check rate limit
+    if (!rateLimiter.checkLimit('sanitize')) {
+      const status = rateLimiter.getRemainingAttempts('sanitize');
+      toast.error(`Rate limit exceeded. Please wait ${rateLimiter.formatTime(status.resetIn)} before trying again.`);
       return;
     }
 
-    if (validationResult.riskLevel === 'high') {
-      toast.warning("High-risk input detected. Proceeding with enhanced monitoring.");
-    }
-
-    setIsLoading(true);
+    console.log("Starting sanitization process...");
+    setIsProcessing(true);
+    setGameResult(null);
     
     try {
-      const result = await sanitizationEngine.sanitize(input);
-      setSanitizationResult(result);
+      const sanitizationResult = await sanitizationEngine.sanitize(input);
+      setResult(sanitizationResult);
       
-      if (isGameMode) {
-        const gameResult = gameEngine.evaluateAttempt(input, result);
-        setGameResult(gameResult);
+      if (gameMode) {
+        const attemptResult = gameEngine.evaluateAttempt(input, sanitizationResult);
+        setGameResult(attemptResult);
+        setGameState(gameEngine.getGameState());
+        setCurrentLevel(gameEngine.getCurrentLevel());
         
-        if (gameResult.success) {
-          toast.success(gameResult.message);
-          if (gameResult.nextLevel) {
-            // Auto-advance or show completion
-            const gameState = gameEngine.getGameState();
-            if (gameState.currentLevel > gameEngine.getCurrentLevel().id) {
-              setShowCompletion(true);
-            }
-          }
+        if (attemptResult.success) {
+          toast.success(`🎯 Level ${currentLevel.id} completed!`);
         } else {
-          toast.error(gameResult.message);
+          toast.error(attemptResult.message);
         }
       } else {
-        // Free mode feedback
-        const riskLevel = result.severity;
-        if (riskLevel === 'critical' || riskLevel === 'high') {
-          toast.error(`High security risk detected! ${result.issues.length} issues found.`);
-        } else if (riskLevel === 'moderate') {
-          toast.warning(`Moderate security concerns detected. ${result.issues.length} issues found.`);
-        } else if (result.issues.length === 0) {
-          toast.success("Content appears safe. No security threats detected.");
+        // Original functionality
+        switch (sanitizationResult.severity) {
+          case 'critical':
+            toast.error(`Critical threats detected and neutralized!`);
+            break;
+          case 'high':
+            toast.error(`High severity threats detected and neutralized!`);
+            break;
+          case 'moderate':
+            toast.warning(`${sanitizationResult.issues.length} potential issues found and handled`);
+            break;
+          case 'low':
+            toast.info(`${sanitizationResult.issues.length} minor issues cleaned up`);
+            break;
+          default:
+            toast.success("Content appears safe - no threats detected");
         }
       }
-      
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('Sanitization error:', error);
       toast.error("An error occurred during analysis. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
+  };
+
+  const handleUseHint = () => {
+    // Check rate limit for hints
+    if (!rateLimiter.checkLimit('hint')) {
+      const status = rateLimiter.getRemainingAttempts('hint');
+      toast.error(`Too many hint requests. Please wait ${rateLimiter.formatTime(status.resetIn)}.`);
+      return;
+    }
+    
+    const hint = gameEngine.useHint(currentLevel.id);
+    setCurrentHint(hint);
+    setGameState(gameEngine.getGameState());
+    toast.info(`💡 Hint: ${hint}`);
   };
 
   const handleResetGame = () => {
     gameEngine.resetGame();
+    setGameState(gameEngine.getGameState());
+    setCurrentLevel(gameEngine.getCurrentLevel());
+    setResult(null);
     setGameResult(null);
-    setShowCompletion(false);
-    toast.success("Game progress has been reset.");
+    setInput("");
+    setCurrentHint("");
+    toast.success("🔄 Game reset - Ready for new training session");
   };
 
-  const handleClaimCertificate = () => {
-    setShowCertificate(true);
+  // Get security metrics
+  const metrics = sanitizationEngine['securityMonitor']?.getMetrics() || {
+    totalScans: 0,
+    threatsBlocked: 0,
+    falsePositives: 0,
+    lastScanTime: 0
   };
 
-  const handleUseHint = () => {
-    const currentLevel = gameEngine.getCurrentLevel();
-    const hint = gameEngine.useHint(currentLevel.id);
-    toast.info(hint);
-  };
-
-  const progress = gameEngine.getProgress();
-  const gameState = gameEngine.getGameState();
-  const currentLevel = gameEngine.getCurrentLevel();
+  const socialLinks = [
+    { name: "Email", icon: Mail, url: "mailto:littlehakr@protonmail.com", label: "email" },
+    { name: "Instagram", icon: Instagram, url: "https://www.instagram.com/little_hakr/", label: "IG" },
+    { name: "TikTok", icon: ExternalLink, url: "https://www.tiktok.com/@littlehakr", label: "TikTok" },
+    { name: "LinkTree", icon: ExternalLink, url: "https://linktr.ee/littlehakr", label: "website" },
+    { name: "LinkedIn", icon: ExternalLink, url: "https://www.linkedin.com/in/david-kyazze-ntwatwa", label: "linkedin" }
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-terminal-green">
-      <header className="container mx-auto px-4 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Zap className="h-6 w-6 text-terminal-green" />
-          <div className="text-xl font-bold">{config.app.name}</div>
-          <Badge variant="secondary" className="uppercase text-xs">v{config.app.version}</Badge>
+    <div className="min-h-screen bg-terminal-bg text-terminal-green font-mono relative terminal-flicker">
+      <TerminalEffects />
+      
+      {/* Boot sequence overlay */}
+      {showBootAnimation && (
+        <div className="fixed inset-0 bg-terminal-bg z-50 flex items-center justify-center terminal-boot">
+          <div className="text-center px-4">
+            <div className="text-2xl md:text-4xl font-bold text-terminal-green mb-4 pulse-glow">
+              {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
+            </div>
+            <div className="typewriter text-sm md:text-lg">
+              {gameMode ? "Loading training simulation..." : "Initializing security protocols..."}
+            </div>
+            <div className="mt-4 flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terminal-green"></div>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-4">
-          <a href={config.social.linktree} target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
-            <Globe className="h-5 w-5" />
-          </a>
-          <a href={config.social.instagram} target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
-            <Instagram className="h-5 w-5" />
-          </a>
-          <a href={config.social.tiktok} target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
-            <MessageCircle className="h-5 w-5" />
-          </a>
-          <a href={config.social.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">
-            <Linkedin className="h-5 w-5" />
-          </a>
-          <a href={`mailto:${config.social.email}`} className="hover:text-gray-400 transition-colors">
-            <Mail className="h-5 w-5" />
-          </a>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Game Mode Toggle */}
-        <Card className="border-terminal-green/20 bg-black/40 backdrop-blur-sm">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-terminal-green flex items-center gap-2 text-lg sm:text-xl">
-                  <Gamepad2 className="h-5 w-5 sm:h-6 sm:w-6" />
-                  Training Mode
-                </CardTitle>
-                <CardDescription className="text-gray-400 text-sm sm:text-base">
-                  Switch between guided training and free exploration
-                </CardDescription>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Label htmlFor="game-mode" className="text-sm font-medium text-gray-300">
-                  {isGameMode ? 'Structured Training' : 'Free Mode'}
-                </Label>
+      {/* Header */}
+      <div className="border-b border-terminal-green/30 bg-card relative z-10">
+        <div className="container mx-auto px-2 md:px-4 py-4 md:py-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-3 mb-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <Shield className="h-6 w-6 md:h-8 md:w-8 text-terminal-green pulse-glow flex-shrink-0" />
+              <h1 className="text-lg md:text-2xl font-bold text-terminal-green terminal-green-glow">
+                {gameMode ? "JAILBREAK_TRAINING" : "AI_GUARDIAN"}
+              </h1>
+              <div className="flex items-center space-x-2">
                 <Switch
                   id="game-mode"
-                  checked={isGameMode}
-                  onCheckedChange={setIsGameMode}
-                  className="data-[state=checked]:bg-terminal-green"
+                  checked={gameMode}
+                  onCheckedChange={(checked) => {
+                    setGameMode(checked);
+                    storageService.savePreferences({
+                      ...preferences,
+                      gameMode: checked,
+                    });
+                  }}
                 />
+                <Label htmlFor="game-mode" className="text-xs font-mono hidden md:block">
+                  {gameMode ? "TRAINING" : "SECURITY"}
+                </Label>
+              </div>
+              <Badge variant="outline" className="bg-terminal-green/20 text-terminal-green border-terminal-green/50 pulse-glow text-xs">
+                {gameMode ? "GAME_MODE" : "v2.0"}
+              </Badge>
+            </div>
+            
+            {/* Social Media Links */}
+            <div className="flex items-center gap-2 md:gap-4">
+              {socialLinks.map((link, index) => (
+                <a
+                  key={index}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-terminal-green transition-colors duration-200 pulse-glow hover:terminal-green-glow"
+                  title={link.name}
+                >
+                  <link.icon className="h-4 w-4 md:h-5 md:w-5" />
+                </a>
+              ))}
+            </div>
+          </div>
+          
+          <p className="text-muted-foreground text-xs md:text-sm typewriter mb-2 md:mb-4">
+            {gameMode 
+              ? "// 20-level jailbreaking certification program for cybersecurity professionals"
+              : "// Advanced threat detection and content sanitization engine"
+            }
+          </p>
+
+          {!gameMode && (
+            <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs data-stream">
+              <div className="flex items-center gap-1 md:gap-2">
+                <Scan className="h-3 w-3 md:h-4 md:w-4" />
+                <span>Scans: {metrics.totalScans}</span>
+              </div>
+              <div className="flex items-center gap-1 md:gap-2">
+                <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-red-400" />
+                <span>Threats: {metrics.threatsBlocked}</span>
+              </div>
+              <div className="flex items-center gap-1 md:gap-2">
+                <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden md:inline">Last Scan: </span>
+                <span>{metrics.lastScanTime ? new Date(metrics.lastScanTime).toLocaleTimeString() : 'Never'}</span>
               </div>
             </div>
-          </CardHeader>
-        </Card>
+          )}
+        </div>
+      </div>
 
-        {/* Game Header */}
-        {isGameMode && (
-          <GameHeader 
-            gameState={gameState}
-            currentLevel={currentLevel}
-            onUseHint={handleUseHint}
-            onResetGame={handleResetGame}
-          />
+      <div className="container mx-auto px-2 md:px-4 py-4 md:py-8 relative z-10">
+        {gameMode && (
+          <div className="mb-4 md:mb-6">
+            <GameHeader
+              gameState={gameState}
+              currentLevel={currentLevel}
+              onUseHint={handleUseHint}
+              onResetGame={handleResetGame}
+            />
+          </div>
         )}
 
-        {/* Input Section */}
-        <Card className="border-terminal-green/20 bg-black/40 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-terminal-green flex items-center gap-2">
-              <Terminal className="h-5 w-6" />
-              {isGameMode ? 'Jailbreak Attempt' : 'Security Analysis Input'}
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              {isGameMode 
-                ? 'Craft your prompt to complete the current level objective'
-                : 'Enter any text to analyze for potential security threats and vulnerabilities'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Textarea
-              placeholder={isGameMode 
-                ? "Enter your jailbreak prompt here..." 
-                : "Enter text to analyze for security threats..."
-              }
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              className="min-h-[120px] bg-black/50 border-terminal-green/30 text-terminal-green placeholder:text-gray-500 font-mono text-sm resize-none focus:border-terminal-green/60 focus:ring-1 focus:ring-terminal-green/30"
-            />
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                onClick={handleSubmit}
-                disabled={isLoading}
-                className="flex-1 sm:flex-none bg-terminal-green text-black hover:bg-terminal-green/80 font-medium px-6 py-2"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="mr-2 h-4 w-4" />
-                    {isGameMode ? 'Submit Attempt' : 'Analyze Security'}
-                  </>
+        <div className={`grid grid-cols-1 ${gameMode && config.features.leaderboard ? 'xl:grid-cols-3' : 'lg:grid-cols-2'} gap-4 md:gap-6`}>
+          {/* Input Section */}
+          <div className="space-y-4">
+            <Card className="border-terminal-green/30 bg-card pulse-glow">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
+                    <Zap className="h-4 w-4" />
+                    {gameMode ? "JAILBREAK_ATTEMPT" : "OUTPUT_ANALYZER"}
+                  </CardTitle>
+                  {!gameMode && (
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="expert-mode"
+                        checked={expertMode}
+                        onCheckedChange={(checked) => {
+                          setExpertMode(checked);
+                          storageService.savePreferences({
+                            ...preferences,
+                            expertMode: checked,
+                          });
+                        }}
+                      />
+                      <Label htmlFor="expert-mode" className="text-xs font-mono">
+                        EXPERT_MODE
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <Textarea
+                    placeholder={gameMode 
+                      ? "// Enter your jailbreak attempt here..."
+                      : "// Enter content to analyze for security threats..."
+                    }
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="min-h-[200px] md:min-h-[300px] font-mono text-sm bg-terminal-bg border-terminal-green/30 text-terminal-green placeholder:text-muted-foreground resize-none data-stream"
+                  />
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-terminal-bg/90 flex items-center justify-center">
+                      <div className="text-center px-4">
+                        <div className="text-terminal-green font-mono text-sm md:text-lg glitch mb-4">
+                          {gameMode ? "ANALYZING JAILBREAK..." : "SCANNING FOR THREATS..."}
+                        </div>
+                        <div className="flex justify-center space-x-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className="w-2 h-2 bg-terminal-green rounded-full animate-pulse"
+                              style={{
+                                animationDelay: `${i * 0.1}s`,
+                                animationDuration: '1s'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {currentHint && (
+                  <div className="p-3 rounded border border-terminal-green/20 bg-terminal-bg">
+                    <p className="text-xs font-mono text-terminal-green break-words">
+                      💡 HINT: {currentHint}
+                    </p>
+                  </div>
                 )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setInput('')}
-                className="border-terminal-green/30 text-terminal-green hover:bg-terminal-green/10 px-4 py-2"
-              >
-                Clear
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  <Button 
+                    onClick={handleSanitize}
+                    disabled={isProcessing || !input.trim()}
+                    className="font-mono bg-terminal-green text-terminal-bg hover:bg-terminal-green/80 pulse-glow w-full sm:w-auto text-sm"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-terminal-bg mr-2" />
+                        {gameMode ? "EXECUTING..." : "SCANNING..."}
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-4 w-4 mr-2" />
+                        <span className="hidden sm:inline">
+                          {gameMode ? "EXECUTE_JAILBREAK" : "ANALYZE_THREATS"}
+                        </span>
+                        <span className="sm:hidden">
+                          {gameMode ? "EXECUTE" : "ANALYZE"}
+                        </span>
+                      </>
+                    )}
+                  </Button>
+                  {input.length > 0 && (
+                    <Badge variant="outline" className="font-mono text-xs animate-pulse">
+                      {input.length.toLocaleString()} chars
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Results Section */}
-        {sanitizationResult && (
-          <div className="space-y-6">
-            {isGameMode && gameResult && (
+            {/* Security Metrics / Game Stats */}
+            <Card className="border-terminal-green/30 bg-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
+                  <BarChart3 className="h-4 w-4" />
+                  {gameMode ? "TRAINING_STATS" : "SECURITY_METRICS"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {gameMode ? (
+                  <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
+                    <div className="space-y-1 data-stream">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
+                        {gameState.currentLevel}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        <span className="hidden md:inline">CURRENT_</span>LEVEL
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green glitch">
+                        {gameState.score.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        <span className="hidden md:inline">TOTAL_</span>SCORE
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green">
+                        {gameState.levelProgress.filter(p => p.completed).length}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        DONE
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
+                    <div className="space-y-1 data-stream">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green terminal-green-glow">
+                        {metrics.totalScans}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        <span className="hidden md:inline">TOTAL_</span>SCANS
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-red-400 glitch">
+                        {metrics.threatsBlocked}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        <span className="hidden md:inline">THREATS_</span>BLOCKED
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-lg md:text-2xl font-bold font-mono text-terminal-green">
+                        {result?.processingTime || 0}<span className="text-xs">ms</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        <span className="hidden md:inline">LAST_SCAN_</span>TIME
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Results Section */}
+          <div className="space-y-4">
+            {gameResult && (
               <GameResults result={gameResult} />
             )}
-            
-            <Tabs defaultValue="output" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-terminal-green/20">
-                <TabsTrigger 
-                  value="output" 
-                  className="data-[state=active]:bg-terminal-green data-[state=active]:text-black text-terminal-green"
-                >
-                  Analysis Results
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="issues" 
-                  className="data-[state=active]:bg-terminal-green data-[state=active]:text-black text-terminal-green"
-                >
-                  Security Issues ({sanitizationResult.issues.length})
-                </TabsTrigger>
-              </TabsList>
 
-              <TabsContent value="output" className="space-y-4">
-                <OutputDisplay result={sanitizationResult} />
-              </TabsContent>
-
-              <TabsContent value="issues" className="space-y-4">
-                <IssuesList issues={sanitizationResult.issues} expertMode={false} />
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
-
-        {/* Leaderboard and Statistics */}
-        {config.features.leaderboard && (
-          <Leaderboard />
-        )}
-
-        {/* Completion Dialog */}
-        <CompletionDialog 
-          open={showCompletion} 
-          onOpenChange={setShowCompletion}
-          gameState={gameState}
-          onReset={handleResetGame}
-        />
-
-        {/* Certificate Dialog */}
-        {config.features.certificates && (
-          <Certificate 
-            open={showCertificate} 
-            onOpenChange={setShowCertificate}
-            gameState={gameState}
-          />
-        )}
-      </main>
-
-      {/* Security Monitor */}
-      <SecurityMonitor />
-
-      {/* Footer */}
-      <footer className="border-t border-terminal-green/20 bg-black/40 backdrop-blur-sm py-8 mt-16">
-        <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
-          <p>
-            Advanced AI Security Training Simulator
-            <br />
-            Created by <a href={config.social.linktree} target="_blank" rel="noopener noreferrer" className="text-terminal-green hover:underline">LittleHakr</a>
-          </p>
-          <Separator className="my-4 bg-terminal-green/20" />
-          <div className="flex items-center justify-center space-x-4">
-            {isGameMode && (
+            {result && (
               <>
-                <Button variant="secondary" size="sm" onClick={handleUseHint} className="gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  Use Hint
-                </Button>
-                <Button variant="destructive" size="sm" onClick={handleResetGame} className="gap-2">
-                  <Terminal className="h-4 w-4" />
-                  Reset Game
-                </Button>
+                {/* Summary Card */}
+                <Card className={`border-terminal-green/30 bg-card ${
+                  result.severity === 'critical' ? 'threat-detected glitch' : 
+                  result.severity !== 'none' ? 'pulse-glow' : ''
+                }`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <CardTitle className="text-sm font-mono text-terminal-green flex items-center gap-2 terminal-green-glow">
+                        <CheckCircle className="h-4 w-4" />
+                        {gameMode ? "JAILBREAK_ANALYSIS" : "SCAN_SUMMARY"}
+                      </CardTitle>
+                      <SeverityBadge severity={result.severity} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                      <div className="flex justify-between sm:flex-col sm:justify-start">
+                        <span className="text-muted-foreground">ISSUES:</span>
+                        <span className={`text-terminal-green ${result.issues.length > 0 ? 'glitch' : ''}`}>
+                          {result.issues.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between sm:flex-col sm:justify-start">
+                        <span className="text-muted-foreground">TIME:</span>
+                        <span className="text-terminal-green">{result.processingTime}ms</span>
+                      </div>
+                      <div className="flex justify-between sm:flex-col sm:justify-start">
+                        <span className="text-muted-foreground">STATUS:</span>
+                        <span className={result.severity === 'none' ? 'text-terminal-green' : 'text-red-400 glitch'}>
+                          {result.severity === 'none' ? 'SAFE' : 'THREATS'}
+                        </span>
+                      </div>
+                    </div>
+                    {result.guidance && (
+                      <div className="mt-3 p-3 rounded border border-terminal-green/20 bg-terminal-bg data-stream">
+                        <p className="text-xs font-mono text-muted-foreground break-words">
+                          {result.guidance}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Tabbed Results */}
+                <Tabs defaultValue="output" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 bg-card border border-terminal-green/30">
+                    <TabsTrigger value="output" className="font-mono text-xs">
+                      <span className="hidden sm:inline">
+                        {gameMode ? "EXECUTION_OUTPUT" : "SANITIZED_OUTPUT"}
+                      </span>
+                      <span className="sm:hidden">OUTPUT</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="issues" className="font-mono text-xs">
+                      <span className="hidden sm:inline">
+                        {gameMode ? "VULNERABILITY_ANALYSIS" : "THREAT_ANALYSIS"}
+                      </span>
+                      <span className="sm:hidden">ANALYSIS</span>
+                      {result.issues.length > 0 && (
+                        <Badge variant="outline" className="ml-1 md:ml-2 bg-red-900/50 text-red-200 border-red-500/50 glitch text-xs">
+                          {result.issues.length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="output" className="mt-4">
+                    <div className="space-y-4">
+                      <OutputDisplay content={input} type="original" />
+                      <OutputDisplay content={result.sanitizedOutput} type="sanitized" />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="issues" className="mt-4">
+                    <IssuesList issues={result.issues} expertMode={expertMode} />
+                  </TabsContent>
+                </Tabs>
               </>
             )}
-            {gameState.completedAt && config.features.certificates && (
-              <Button variant="outline" size="sm" onClick={handleClaimCertificate} className="gap-2">
-                <Award className="h-4 w-4" />
-                Claim Certificate
-              </Button>
+
+            {!result && (
+              <Card className="border-terminal-green/30 bg-card pulse-glow">
+                <CardContent className="p-4 md:p-8 text-center">
+                  <Shield className="h-8 w-8 md:h-12 md:w-12 mx-auto mb-4 text-terminal-green/50 pulse-glow" />
+                  <p className="text-muted-foreground font-mono text-sm typewriter break-words">
+                    {gameMode 
+                      ? "// Ready to test your jailbreaking skills"
+                      : "// Ready to analyze content for security threats"
+                    }
+                  </p>
+                  <p className="text-muted-foreground font-mono text-xs mt-2 break-words">
+                    {gameMode 
+                      ? "Craft your jailbreak attempt and click EXECUTE"
+                      : "Enter content above and click ANALYZE to begin"
+                    }
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
-          <p className="mt-4">
-            <ExternalLink className="h-3 w-3 inline-block mr-1 align-text-bottom" />
-            <a href="https://github.com/little-hakr/llm-sanitizer-59" target="_blank" rel="noopener noreferrer" className="text-terminal-green hover:underline">
-              Open Source on GitHub
-            </a>
-          </p>
+
+          {/* Leaderboard Section - Only in game mode */}
+          {gameMode && config.features.leaderboard && (
+            <div className="space-y-4 xl:block hidden">
+              <Leaderboard />
+            </div>
+          )}
         </div>
-      </footer>
+      </div>
     </div>
   );
 };
