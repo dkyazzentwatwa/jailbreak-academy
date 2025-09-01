@@ -1,6 +1,6 @@
 # AI Guardian - LLM Security Training Platform
 
-![AI Guardian Screenshot](img/Screenshot%202025-09-01%20at%2010.29.47%20AM.png)
+![AI Guardian Screenshot](img/pic.png)
 
 ## 🛡️ Overview
 
