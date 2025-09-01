@@ -1,3 +1,4 @@
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Trophy, Award, RotateCcw } from 'lucide-react';
@@ -16,6 +17,7 @@ export function CompletionDialog({ open, onOpenChange, gameState, onReset }: Com
   const [showCertificate, setShowCertificate] = useState(false);
   
   const completedLevels = gameState.levelProgress.filter(p => p.completed).length;
+  const totalAttempts = gameState.levelProgress.reduce((sum, progress) => sum + progress.attempts, 0);
   const isFullCompletion = completedLevels === 20;
 
   if (showCertificate) {
@@ -64,7 +66,7 @@ export function CompletionDialog({ open, onOpenChange, gameState, onReset }: Com
             <div className="space-y-1">
               <div className="text-xs font-mono text-terminal-green/70">TOTAL_ATTEMPTS</div>
               <div className="text-2xl font-mono font-bold text-terminal-green">
-                {gameState.attempts}
+                {totalAttempts}
               </div>
             </div>
             <div className="space-y-1">
