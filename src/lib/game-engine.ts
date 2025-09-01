@@ -177,10 +177,33 @@ class GameEngineClass {
     const level = GAME_LEVELS.find(l => l.id === levelId);
     if (!level) return "No hint available for this level.";
 
-    this.gameState.hintsUsed++;
-    this.saveGameState();
+    const progress = this.gameState.levelProgress.find(p => p.levelId === levelId);
+    if (!progress) return "Level progress not found.";
 
-    return level.hint;
+    // Initialize hintsUsed if not set
+    if (!progress.hintsUsed) {
+      progress.hintsUsed = 0;
+    }
+
+    // Handle both string and array hints
+    if (Array.isArray(level.hint)) {
+      if (progress.hintsUsed >= level.hint.length) {
+        return "No more hints available for this level.";
+      }
+      const hint = level.hint[progress.hintsUsed];
+      progress.hintsUsed++;
+      this.gameState.hintsUsed++;
+      this.saveGameState();
+      return hint;
+    } else {
+      if (progress.hintsUsed > 0) {
+        return "Hint already used: " + level.hint;
+      }
+      progress.hintsUsed = 1;
+      this.gameState.hintsUsed++;
+      this.saveGameState();
+      return level.hint;
+    }
   }
 
   public getLeaderboard(): any[] {

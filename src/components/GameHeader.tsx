@@ -16,6 +16,8 @@ interface GameHeaderProps {
 export const GameHeader = ({ gameState, currentLevel, onUseHint, onResetGame }: GameHeaderProps) => {
   const progress = gameState.levelProgress.find(p => p.levelId === currentLevel.id);
   const completedLevels = gameState.levelProgress.filter(p => p.completed).length;
+  const hintsUsed = progress?.hintsUsed || 0;
+  const totalHints = Array.isArray(currentLevel.hint) ? currentLevel.hint.length : 1;
   
   return (
     <div className="space-y-4">
@@ -91,7 +93,7 @@ export const GameHeader = ({ gameState, currentLevel, onUseHint, onResetGame }: 
                 className="font-mono text-xs border-terminal-green/50 hover:bg-terminal-green/20"
               >
                 <HelpCircle className="h-3 w-3 mr-1" />
-                HINT ({progress?.hintsUsed || 0}/{currentLevel.hints.length})
+                HINT ({hintsUsed}/{totalHints})
               </Button>
               <Button
                 variant="outline"
