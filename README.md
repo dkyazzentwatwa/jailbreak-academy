@@ -1,5 +1,7 @@
 # AI Guardian - LLM Security Training Platform
 
+![AI Guardian Screenshot](img/Screenshot%202025-09-01%20at%2010.29.47%20AM.png)
+
 ## 🛡️ Overview
 
 AI Guardian is an interactive cybersecurity training platform that helps security professionals and AI developers understand and defend against prompt injection attacks and jailbreaking techniques. Through a gamified 20-level progression system, users learn to identify, analyze, and neutralize various security threats targeting Large Language Models (LLMs).
