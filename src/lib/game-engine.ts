@@ -1,216 +1,220 @@
+import { GameLevel, GameState, GameResult } from '@/types/game';
+import { GAME_LEVELS } from './game-levels';
 
-import { GameState, GameLevel, GameResult, LevelProgress } from "@/types/game";
-import { SanitizationResult } from "@/types/sanitization";
-import { GAME_LEVELS } from "./game-levels";
-import { storageService } from "./storage";
-
-class GameEngineClass {
+class GameEngine {
   private gameState: GameState;
+  private levels: GameLevel[];
+  private localStorageKey = 'jailbreakGameState';
 
-  constructor() {
-    this.gameState = this.loadGameState();
+  constructor(levels: GameLevel[]) {
+    this.levels = levels;
+    this.gameState = this.loadState() || this.initializeState();
   }
 
-  private loadGameState(): GameState {
-    const saved = storageService.loadGameState();
-    if (saved) {
-      return saved;
-    }
-
-    // Initialize new game state
+  private initializeState(): GameState {
     return {
       currentLevel: 1,
       score: 0,
       hintsUsed: 0,
       attempts: 0,
-      levelProgress: GAME_LEVELS.map((level) => ({
+      levelProgress: this.levels.map(level => ({
         levelId: level.id,
         completed: false,
         attempts: 0,
         bestScore: 0,
         timeSpent: 0,
-        hintsUsed: 0
+        hintsUsed: 0,
       })),
       totalTimeSpent: 0,
       achievements: [],
-      completedAt: null
+      completedAt: null,
     };
   }
 
-  private saveGameState(): void {
-    storageService.saveGameState(this.gameState);
+  startGame(): void {
+    this.gameState = this.loadState() || this.initializeState();
+    if (this.gameState.completedAt) {
+      console.log('Game already completed!');
+    } else {
+      console.log('Game started or resumed.');
+    }
   }
 
-  public getGameState(): GameState {
-    return { ...this.gameState };
+  resetGame(): void {
+    this.gameState = this.initializeState();
+    this.saveState();
+    console.log('Game reset.');
   }
 
-  public getCurrentLevel(): GameLevel {
-    return GAME_LEVELS.find(level => level.id === this.gameState.currentLevel) || GAME_LEVELS[0];
+  loadState(): GameState | null {
+    try {
+      const serializedState = localStorage.getItem(this.localStorageKey);
+      if (serializedState === null) {
+        return null;
+      }
+      const loadedState = JSON.parse(serializedState);
+      return loadedState as GameState;
+    } catch (error) {
+      console.error('Failed to load game state:', error);
+      return null;
+    }
   }
 
-  public startGame(): void {
-    console.log('Game engine initialized');
+  saveState(): void {
+    try {
+      const serializedState = JSON.stringify(this.gameState);
+      localStorage.setItem(this.localStorageKey, serializedState);
+    } catch (error) {
+      console.error('Failed to save game state:', error);
+    }
   }
 
-  public resetGame(): void {
-    this.gameState = {
-      currentLevel: 1,
-      score: 0,
-      hintsUsed: 0,
-      attempts: 0,
-      levelProgress: GAME_LEVELS.map((level) => ({
-        levelId: level.id,
-        completed: false,
-        attempts: 0,
-        bestScore: 0,
-        timeSpent: 0,
-        hintsUsed: 0
-      })),
-      totalTimeSpent: 0,
-      achievements: [],
-      completedAt: null
-    };
-    this.saveGameState();
+  getCurrentLevel(): GameLevel {
+    const level = this.levels.find(level => level.id === this.gameState.currentLevel);
+    if (!level) {
+      console.warn(`Level ${this.gameState.currentLevel} not found. Resetting to level 1.`);
+      this.gameState.currentLevel = 1;
+      this.saveState();
+      return this.getCurrentLevel();
+    }
+    return level;
   }
 
-  public evaluateAttempt(input: string, sanitizationResult: SanitizationResult): GameResult {
-    const currentLevel = this.getCurrentLevel();
-    const progress = this.gameState.levelProgress.find(p => p.levelId === currentLevel.id);
-    
-    if (!progress) {
-      throw new Error(`Progress not found for level ${currentLevel.id}`);
+  evaluateAttempt(input: string, sanitizationResult: any): GameResult {
+    const level = this.getCurrentLevel();
+    const levelProgress = this.gameState.levelProgress.find(p => p.levelId === level.id);
+
+    if (!levelProgress) {
+      console.error(`No progress entry found for level ${level.id}`);
+      return {
+        success: false,
+        message: 'Game Error: No progress found for this level.',
+        pointsEarned: 0,
+        levelProgress: {
+          levelId: level.id,
+          completed: false,
+          attempts: 0,
+          bestScore: 0,
+          timeSpent: 0,
+          hintsUsed: 0
+        }
+      };
     }
 
-    progress.attempts++;
-    this.gameState.attempts++;
+    levelProgress.attempts += 1;
+    this.gameState.attempts += 1;
 
-    const success = this.checkLevelSuccess(input, sanitizationResult, currentLevel);
-    
+    let success = true;
+    let message = 'Attempt failed. Try again!';
     let pointsEarned = 0;
-    let bonusPoints = 0;
+
+    if (level.successCriteria) {
+      if (level.successCriteria.requiredKeywords) {
+        const allKeywordsPresent = level.successCriteria.requiredKeywords.every(keyword =>
+          input.toLowerCase().includes(keyword.toLowerCase())
+        );
+
+        if (!allKeywordsPresent) {
+          success = false;
+          message = `Missing required keywords.`;
+        }
+      }
+
+      if (level.successCriteria.forbiddenKeywords && success) {
+        const anyForbiddenKeywordPresent = level.successCriteria.forbiddenKeywords.some(keyword =>
+          input.toLowerCase().includes(keyword.toLowerCase())
+        );
+
+        if (anyForbiddenKeywordPresent) {
+          success = false;
+          message = 'Contains forbidden keywords.';
+        }
+      }
+
+      if (level.successCriteria.threatType && success) {
+        if (sanitizationResult.threatTypes && !sanitizationResult.threatTypes.includes(level.successCriteria.threatType)) {
+          success = false;
+          message = `Expected threat type ${level.successCriteria.threatType} not detected.`;
+        }
+      }
+
+      if (level.successCriteria.minSeverity && success) {
+        const severityLevels = { 'low': 1, 'moderate': 2, 'high': 3, 'critical': 4 };
+        const requiredSeverity = severityLevels[level.successCriteria.minSeverity] || 0;
+        const actualSeverity = severityLevels[sanitizationResult.severity] || 0;
+
+        if (actualSeverity < requiredSeverity) {
+          success = false;
+          message = `Severity level too low.`;
+        }
+      }
+
+      if (level.successCriteria.successPattern && success) {
+        const pattern = new RegExp(level.successCriteria.successPattern, 'i');
+        if (!pattern.test(sanitizationResult.sanitizedInput)) {
+          success = false;
+          message = 'Success pattern not matched.';
+        }
+      }
+    }
 
     if (success) {
-      pointsEarned = currentLevel.points;
-      
-      if (progress.attempts === 1) {
-        bonusPoints = Math.floor(currentLevel.points * 0.5);
-      } else if (progress.attempts <= 3) {
-        bonusPoints = Math.floor(currentLevel.points * 0.25);
-      }
+      message = 'Level completed successfully!';
+      pointsEarned = level.points;
+      this.gameState.score += level.points;
+      levelProgress.completed = true;
+      levelProgress.completedAt = Date.now();
+      levelProgress.bestScore = Math.max(levelProgress.bestScore, level.points);
 
-      pointsEarned += bonusPoints;
-      
-      progress.completed = true;
-      progress.bestScore = Math.max(progress.bestScore, pointsEarned);
-      this.gameState.score += pointsEarned;
-
-      if (this.gameState.currentLevel < GAME_LEVELS.length) {
-        this.gameState.currentLevel++;
-      }
-
-      if (this.gameState.currentLevel > GAME_LEVELS.length) {
+      if (this.gameState.currentLevel < this.levels.length) {
+        this.gameState.currentLevel += 1;
+      } else {
         this.gameState.completedAt = Date.now();
+        message = 'Congratulations! You have completed all levels!';
       }
     }
 
-    this.saveGameState();
+    this.saveState();
 
     return {
-      success,
-      message: success 
-        ? `Excellent work! You've successfully completed Level ${currentLevel.id}.`
-        : this.getFailureMessage(input, currentLevel),
-      pointsEarned,
-      bonusPoints,
-      nextLevel: success && this.gameState.currentLevel <= GAME_LEVELS.length 
-        ? this.gameState.currentLevel 
-        : undefined,
-      levelProgress: progress
+      success: success,
+      message: message,
+      pointsEarned: pointsEarned,
+      nextLevel: success && this.gameState.completedAt === null ? this.gameState.currentLevel : undefined,
+      levelProgress: levelProgress
     };
   }
 
-  private checkLevelSuccess(input: string, result: SanitizationResult, level: GameLevel): boolean {
-    const inputLower = input.toLowerCase();
-    
-    const hasRequiredKeywords = level.successCriteria.requiredKeywords?.every(keyword => 
-      inputLower.includes(keyword.toLowerCase())
-    ) ?? true;
-
-    const hasForbiddenKeywords = level.successCriteria.forbiddenKeywords?.some(keyword => 
-      inputLower.includes(keyword.toLowerCase())
-    ) ?? false;
-
-    const hasCorrectThreatType = level.successCriteria.threatType ? 
-      result.issues.some(issue => issue.type === level.successCriteria.threatType) : true;
-
-    const meetsMinSeverity = level.successCriteria.minSeverity ? 
-      this.severityToNumber(result.severity) >= this.severityToNumber(level.successCriteria.minSeverity) : true;
-
-    const meetsSuccessPattern = level.successCriteria.successPattern ? 
-      new RegExp(level.successCriteria.successPattern, 'i').test(input) : true;
-
-    return hasRequiredKeywords && 
-           !hasForbiddenKeywords && 
-           hasCorrectThreatType && 
-           meetsMinSeverity && 
-           meetsSuccessPattern;
-  }
-
-  private severityToNumber(severity: string): number {
-    switch (severity) {
-      case 'critical': return 4;
-      case 'high': return 3;
-      case 'moderate': return 2;
-      case 'low': return 1;
-      case 'none': return 0;
-      default: return 0;
-    }
-  }
-
-  private getFailureMessage(input: string, level: GameLevel): string {
-    const messages = [
-      `The AI didn't respond as expected. Try a different approach for Level ${level.id}.`,
-      `Your jailbreak attempt didn't meet the success criteria. Review the objective and try again.`,
-      `Close, but not quite there. Consider the level's hint and refine your strategy.`,
-      `The security measures held. Adjust your technique and attempt again.`
-    ];
-    
-    return messages[Math.floor(Math.random() * messages.length)];
-  }
-
-  public useHint(levelId: number): string {
+  useHint(levelId: number): string {
     const level = GAME_LEVELS.find(l => l.id === levelId);
     if (!level) return "No hint available for this level.";
 
-    this.gameState.hintsUsed++;
     const progress = this.gameState.levelProgress.find(p => p.levelId === levelId);
-    if (progress) {
-      progress.hintsUsed++;
+    if (progress && progress.hintsUsed >= 1) {
+      return "You have already used the hint for this level.";
     }
-    this.saveGameState();
 
+    // Update hints used
+    if (progress) {
+      progress.hintsUsed += 1;
+    }
+    this.gameState.hintsUsed += 1;
+    this.saveState();
+
+    // Handle both string and string array hints
+    if (Array.isArray(level.hint)) {
+      return level.hint.join('\n• ');
+    }
     return level.hint;
   }
 
-  public getLeaderboard(): any[] {
-    // This would typically fetch from a backend
-    // For now, return mock data
-    return [
-      { rank: 1, name: "CyberNinja", score: 15000, level: 20, completionTime: "2h 15m" },
-      { rank: 2, name: "SecurityPro", score: 12500, level: 18, completionTime: "2h 45m" },
-      { rank: 3, name: "EthicalHacker", score: 11000, level: 16, completionTime: "3h 10m" }
-    ];
+  getGameState(): GameState {
+    return this.gameState;
   }
 
-  public getProgress(): { completed: number; total: number; percentage: number } {
-    const completed = this.gameState.levelProgress.filter(p => p.completed).length;
-    const total = GAME_LEVELS.length;
-    const percentage = Math.round((completed / total) * 100);
-
-    return { completed, total, percentage };
+  getProgress() {
+    return this.gameState.levelProgress.filter(p => p.completed).length / this.levels.length;
   }
 }
 
-export const gameEngine = new GameEngineClass();
-export { GameEngineClass as JailbreakGameEngine };
+export const gameEngine = new GameEngine(GAME_LEVELS);

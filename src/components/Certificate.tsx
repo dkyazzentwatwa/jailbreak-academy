@@ -11,13 +11,17 @@ import jsPDF from 'jspdf';
 
 interface CertificateProps {
   gameState: GameState;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onClose?: () => void;
 }
 
-export function Certificate({ gameState, onClose }: CertificateProps) {
+export function Certificate({ gameState, open, onOpenChange, onClose }: CertificateProps) {
   const [name, setName] = useState('');
   const [generating, setGenerating] = useState(false);
   const certificateRef = useRef<HTMLDivElement>(null);
+
+  if (!open) return null;
 
   const completedLevels = gameState.levelProgress.filter(p => p.completed).length;
   const completionDate = new Date().toLocaleDateString('en-US', {
