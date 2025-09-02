@@ -5,6 +5,9 @@
 ## 🛡️ Overview
 
 AI Guardian is an interactive cybersecurity training platform that helps security professionals and AI developers understand and defend against prompt injection attacks and jailbreaking techniques. Through a gamified 20-level progression system, users learn to identify, analyze, and neutralize various security threats targeting Large Language Models (LLMs).
+Try it on Lovable:
+https://jailbreak-academy.lovable.app
+
 
 ## ✨ Features
 
